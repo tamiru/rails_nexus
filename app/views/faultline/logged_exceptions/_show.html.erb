@@ -264,7 +264,7 @@
   <% if Faultline.configuration.enable_navigation && (prev_exception || next_exception) %>
     <div class="fl-nav-row">
       <% if prev_exception %>
-        <%= link_to logged_exception_path(prev_exception, params_filters),
+        <%= link_to logged_exception_path(prev_exception.id, params_filters),
           class: "fl-nav-link",
           data: { turbo_frame: "exception-details", turbo_action: "advance" } do %>
           <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
@@ -278,7 +278,7 @@
       <% end %>
 
       <% if next_exception %>
-        <%= link_to logged_exception_path(next_exception, params_filters),
+        <%= link_to logged_exception_path(next_exception.id, params_filters),
           class: "fl-nav-link",
           style: "text-align: right",
           data: { turbo_frame: "exception-details", turbo_action: "advance" } do %>

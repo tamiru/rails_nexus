@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    faultline-rails (0.3.0)
+    faultline-rails (0.8.0)
       rails (~> 8.0, >= 8.0.0)
       ransack (~> 4.0)
       stimulus-rails (~> 1.3)

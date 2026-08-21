@@ -186,12 +186,12 @@ module Faultline
 
     def prev_exception
       return nil unless @prev_exception_id
-      OpenStruct.new(id: @prev_exception_id)
+      Struct.new(:id).new(@prev_exception_id)
     end
 
     def next_exception
       return nil unless @next_exception_id
-      OpenStruct.new(id: @next_exception_id)
+      Struct.new(:id).new(@next_exception_id)
     end
 
     def load_exception_tabs
