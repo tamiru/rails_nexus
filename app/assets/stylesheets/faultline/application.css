@@ -1,5 +1,10 @@
-/* Faultline Dashboard - Self-contained styles */
-/* Works without Tailwind CSS. If you have Tailwind, these serve as fallbacks. */
+/* Faultline Dashboard - Tailwind CSS with fallbacks */
+/* If Tailwind is loaded, these utilities take precedence. */
+/* If Tailwind is NOT loaded, these fallback styles provide the UI. */
+
+/* ═══════════════════════════════════════════════════════════════════
+   FALLBACK STYLES (used when Tailwind CSS is NOT available)
+   ═══════════════════════════════════════════════════════════════════ */
 
 :root {
   --fl-primary: #4f46e5;
@@ -31,7 +36,7 @@ table { border-collapse: collapse; width: 100%; }
 @media (max-width: 1024px) { .fl-grid { grid-template-columns: 1fr; } }
 
 /* Card */
-.fl-card { background: var(--fl-surface); border: 1px solid var(--fl-border); border-radius: var(--fl-radius); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.fl-card { background: var(--fl-surface); border: 1px solid var(--fl-border); border-radius: var(--fl-radius); box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding: 1.25rem; }
 
 /* Header */
 .fl-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; }
@@ -48,7 +53,6 @@ table { border-collapse: collapse; width: 100%; }
 .fl-nav a { display: block; padding: 0.5rem 0.75rem; border-radius: var(--fl-radius-sm); font-size: 0.875rem; color: var(--fl-text-secondary); }
 .fl-nav a:hover { background: #f1f5f9; color: var(--fl-text); text-decoration: none; }
 .fl-nav-scroll { max-height: 10rem; overflow-y: auto; }
-.fl-sidebar hr { border: none; border-top: 1px solid var(--fl-border); margin: 1.5rem 0; padding-top: 1.25rem; }
 
 /* Search */
 .fl-search { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
@@ -119,3 +123,46 @@ table { border-collapse: collapse; width: 100%; }
 /* Utility */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 .sr-only-focusable:focus { position: static; width: auto; height: auto; padding: 0; margin: 0; overflow: visible; clip: auto; border: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   TAILWIND OVERRIDES (used when Tailwind CSS IS available)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Tailwind-compatible pagination */
+.fl-pagination .pagination {
+  @apply flex flex-wrap gap-2 items-center list-none m-0 p-0;
+}
+.fl-pagination .pagination a {
+  @apply px-3 py-1.5 rounded-md text-indigo-600 hover:bg-indigo-50 no-underline text-sm;
+}
+.fl-pagination .pagination span.current {
+  @apply px-3 py-1.5 rounded-md bg-indigo-600 text-white font-semibold text-sm;
+}
+.fl-pagination .pagination span.gap {
+  @apply px-2 py-1.5 text-gray-400 text-sm;
+}
+
+/* Tailwind-compatible search input */
+.fl-search input[type="search"] {
+  @apply flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none;
+}
+
+/* Tailwind-compatible buttons */
+.fl-btn {
+  @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md text-sm font-semibold cursor-pointer no-underline;
+}
+.fl-btn-primary {
+  @apply bg-indigo-600 text-white hover:bg-indigo-700;
+}
+.fl-btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+.fl-btn-outline {
+  @apply bg-transparent border border-gray-300 text-red-700 hover:bg-red-50;
+}
+.fl-btn-sm {
+  @apply px-3 py-1.5 text-xs;
+}
+.fl-btn-ghost {
+  @apply bg-transparent text-gray-500 hover:bg-gray-100;
+}

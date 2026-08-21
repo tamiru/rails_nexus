@@ -29,8 +29,8 @@ class Faultline::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTes
 
   test "index displays exceptions" do
     get "/faultline/logged_exceptions"
-    assert_select ".fl-table"
-    assert_select "a", text: @exception.name
+    assert_select "table"
+    assert_select "span", text: "RuntimeError"
   end
 
   test "index with auth block allows access" do

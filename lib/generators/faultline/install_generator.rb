@@ -14,7 +14,8 @@ module Faultline
       desc "Install Faultline: creates migration, initializer, and mounts routes."
 
       def self.next_migration_number(path)
-        ActiveRecord::Generators::MigrationGenerator.next_migration_number(path)
+        # Generate timestamp-based migration number for Rails 8.1+ compatibility
+        Time.now.utc.strftime("%Y%m%d%H%M%S")
       end
 
       def create_migration

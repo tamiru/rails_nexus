@@ -19,5 +19,15 @@ module Faultline
         app.config.assets.paths << asset_root
       end
     end
+
+    # Configure Ransack for Faultline models
+    initializer "faultline.ransack" do
+      ActiveSupport.on_load(:active_record) do
+        if defined?(Ransack)
+          # Enable Ransack search on LoggedException
+          require "faultline/ransack_config"
+        end
+      end
+    end
   end
 end

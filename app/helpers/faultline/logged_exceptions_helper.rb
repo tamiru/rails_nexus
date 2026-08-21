@@ -11,7 +11,8 @@ module Faultline
     end
 
     def filtered?
-      [:query, :date_ranges_filter, :exception_names_filter, :controller_actions_filter].any? { |p| params[p] }
+      [:query, :date_ranges_filter, :exception_names_filter, :controller_actions_filter].any? { |p| params[p] } ||
+        params[:q].present?
     end
 
     def listify(text)
@@ -30,6 +31,19 @@ module Faultline
         textilize(text).html_safe
       rescue
         simple_format(text).html_safe
+      end
+    end
+
+    # Sort link helper for Ransack-compatible table headers.
+    # Falls back to plain link if Ransack is not available.
+    def sort_link(search, attribute, name = nil, **options, &block)
+      name ||= attribute.to_s.humanize
+
+      if defined?(Ransack) && search.respond_to?(:result)
+        # Delegate to Ransack's built-in sort_link helper
+        Ransack::Helpers::FormHelper.instance_method(:sort_link).bind(self).call(search, attribute, name, **options, &block)
+      else
+        link_to name, "#", **options, &block
       end
     end
   end
