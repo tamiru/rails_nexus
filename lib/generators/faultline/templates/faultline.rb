@@ -2,48 +2,81 @@
 
 Rails.application.config.to_prepare do
   Faultline.configure do |config|
-    # Dashboard title shown in the header.
-    # config.application_name = "MyApp"
+    # ─── General ─────────────────────────────────────────────
+    # Dashboard title
+    # config.application_name = "My App"
 
-    # Protect the dashboard. Return true to allow access, false to deny.
-    # Replace with your app's authentication method.
-    #
-    # Examples:
-    #
-    #   # Require admin user (Devise / custom auth)
-    #   config.auth_block = ->(controller) { controller.current_user&.admin? }
-    #
-    #   # Require any logged-in user
-    #   config.auth_block = ->(controller) { controller.current_user.present? }
-    #
-    #   # HTTP Basic Auth (set FAULTLINE_USER / FAULTLINE_PASSWORD env vars)
-    #   config.auth_block = ->(controller) {
-    #     authenticate_or_request_with_http凭据("Faultline") do |username, password|
-    #       username == ENV["FAULTLINE_USER"] && password == ENV["FAULTLINE_PASSWORD"]
-    #     end
-    #   }
-    #
-    # ⚠️  Without an auth_block, the dashboard is OPEN to anyone.
-    # Uncomment and configure one of the examples above before deploying.
-    config.auth_block = ->(controller) { true }
+    # Number of exceptions per page
+    # config.per_page = 30
 
-    # Attach extra data to each exception record.
-    # config.exception_data = ->(controller) {
+    # ─── Authentication ──────────────────────────────────────
+    # Protect the dashboard — only authorized users can access
+    # config.auth_block = lambda do |controller|
+    #   controller.current_user&.admin?
+    # end
+
+    # ─── Exception Data ──────────────────────────────────────
+    # Attach additional data to each exception record
+    # config.exception_data = lambda do |controller|
     #   {
     #     user_id: controller.current_user&.id,
     #     request_id: controller.request.request_id
     #   }
-    # }
+    # end
 
-    # Number of exceptions per page.
-    # config.per_page = 30
+    # ─── Notifications ───────────────────────────────────────
+    # Custom callback after exception is created
+    # config.after_create = lambda do |exception|
+    #   SlackNotifier.alert(exception)
+    # end
+
+    # Webhook URLs for POST notifications
+    # config.webhooks = ["https://hooks.slack.com/services/xxx"]
+    # config.webhook_timeout = 5
+    # config.webhook_headers = { "Authorization" => "Bearer token" }
+
+    # ─── Cleanup ─────────────────────────────────────────────
+    # Auto-delete exceptions older than N days
+    # config.retention_days = 90
+
+    # ─── Appearance ──────────────────────────────────────────
+    # Theme: "light", "dark", or "auto"
+    # config.theme = "auto"
+
+    # Body CSS class
+    # config.body_class = ""
+
+    # ─── Advanced UI ─────────────────────────────────────────
+
+    # Show stats overview cards on the index page
+    # config.show_stats = true
+
+    # Enable keyboard shortcuts (/, j/k, t, ?, Esc, etc.)
+    # config.keyboard_shortcuts = true
+
+    # Show prev/next navigation in detail view
+    # config.enable_navigation = true
+
+    # Number of backtrace frames before collapsing
+    # config.backtrace_limit = 30
+
+    # Show metadata grid in detail view
+    # config.show_metadata = true
+
+    # Show environment variables in detail view
+    # config.show_environment = false
+
+    # Show request params in detail view
+    # config.show_request = true
+
+    # Page size options for the selector
+    # config.page_size_options = [25, 50, 100]
+
+    # ─── Sidebar Links ───────────────────────────────────────
+    # Custom links in the sidebar
+    # config.sidebar_links = [
+    #   { label: "GitHub", url: "https://github.com/myorg/myapp" },
+    #   { label: "Docs", url: "/docs" }
+    # ]
   end
-end
-
-# Rails 8+ compatibility: Faultline's old rescue_action pattern doesn't work
-# anymore. This registers rescue_from to log exceptions via log_exception_handler.
-#
-# Remove this block if you have your own global exception logging.
-ApplicationController.class_eval do
-  rescue_from Exception, with: :log_exception_handler
 end

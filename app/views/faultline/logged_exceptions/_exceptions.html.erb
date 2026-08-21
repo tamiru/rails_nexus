@@ -1,106 +1,154 @@
-<div id="exceptions-content" class="bg-white shadow rounded-lg overflow-hidden">
-  <%# Header %>
-  <div class="px-6 py-4 border-b border-gray-200 sm:flex sm:items-center sm:justify-between">
-    <div>
-      <h2 class="text-lg font-medium text-gray-900">
-        <%= t(".heading") %>
-        <% if filtered? %>
-          <span class="text-sm font-normal text-gray-500">(<%= t(".filtered") %>)</span>
-        <% end %>
-      </h2>
-      <p class="mt-1 text-sm text-gray-500"><%= t(".count", count: @exceptions.total_entries) %></p>
-    </div>
-    <div class="mt-4 sm:mt-0">
-      <%= link_to t(".delete_visible"), destroy_all_logged_exceptions_path(params_filters),
-        class: "inline-flex items-center px-3 py-2 border border-red-300 text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500",
-        data: { turbo_method: :post, turbo_confirm: t(".confirm_delete_visible"), turbo_stream: true } %>
-    </div>
-  </div>
-
+<div id="exceptions-content" class="fl-card overflow-hidden">
   <% if @exceptions.empty? %>
-    <div class="px-6 py-12 text-center">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <p class="mt-2 text-sm text-gray-500"><%= t(".empty") %></p>
+    <div class="py-16 text-center">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto" style="background: var(--fl-success-light)">
+        <svg class="w-6 h-6" style="color: var(--fl-success)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p class="mt-3 text-sm font-medium" style="color: var(--fl-text)"><%= t(".empty") %></p>
+      <p class="mt-1 text-xs" style="color: var(--fl-text-muted)">No exceptions match your current filters.</p>
+      <% if filtered? %>
+        <%= link_to "Clear filters", logged_exceptions_path, class: "mt-3 inline-block text-xs font-medium", style: "color: var(--fl-primary)" %>
+      <% end %>
     </div>
   <% else %>
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+    <%# ─── Table Header Bar ───────────────────────────────────── %>
+    <div class="px-4 py-2.5 flex items-center justify-between" style="background: var(--fl-bg-secondary); border-bottom: 1px solid var(--fl-border-light)">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-medium" style="color: var(--fl-text-secondary)">
+          <span class="font-semibold" style="color: var(--fl-text)"><%= @exceptions.total_entries %></span> exceptions
+          <% if filtered? %>
+            <span style="color: var(--fl-text-muted)">(filtered)</span>
+          <% end %>
+        </span>
+
+        <%# Page size selector %>
+        <div class="flex items-center gap-1">
+          <span class="text-xs" style="color: var(--fl-text-muted)">Show</span>
+          <% Faultline.configuration.page_size_options.each do |size| %>
+            <%= link_to size.to_s,
+              logged_exceptions_path(params_filters.merge(per_page: size)),
+              class: "fl-btn fl-btn-xs #{params[:per_page].to_i == size || (!params[:per_page] && size == Faultline.configuration.per_page) ? 'fl-btn-primary' : 'fl-btn-ghost'}",
+              data: { turbo_frame: "exceptions" } %>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <%# Keyboard hint %>
+        <span class="text-xs flex items-center gap-1" style="color: var(--fl-text-muted)">
+          <span class="fl-kbd">?</span> shortcuts
+        </span>
+
+        <%= link_to destroy_all_logged_exceptions_path(params_filters),
+          class: "fl-btn fl-btn-ghost fl-btn-sm",
+          style: "color: var(--fl-danger); border-color: var(--fl-danger)",
+          data: { turbo_method: :post, turbo_confirm: t(".confirm_delete_visible"), turbo_stream: true } do %>
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+          Delete all
+        <% end %>
+      </div>
+    </div>
+
+    <%# ─── Exception Table ────────────────────────────────────── %>
+    <div class="fl-table-wrap">
+      <table class="fl-table">
+        <thead>
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <%= sort_link @q, :exception_class, "Exception", data: { turbo_frame: "exceptions" } %>
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <%= sort_link @q, :controller_name, "Controller", data: { turbo_frame: "exceptions" } %>
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <%= sort_link @q, :action_name, "Action", data: { turbo_frame: "exceptions" } %>
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Message
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <%= sort_link @q, :created_at, "Date", data: { turbo_frame: "exceptions" } %>
-            </th>
-            <th class="relative px-6 py-3">
-              <span class="sr-only"><%= t(".actions") %></span>
-            </th>
+            <th style="width: 1rem"></th>
+            <th>Exception</th>
+            <th>Source</th>
+            <th>Message</th>
+            <th>Count</th>
+            <th>Time</th>
+            <th style="text-align: right"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <% @exceptions.each do |exception| %>
-            <tr id="<%= dom_id(exception) %>" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                  <%= exception.exception_class %>
+        <tbody data-faultline-target="exceptionList">
+          <% @exceptions.each_with_index do |exception, index| %>
+            <tr id="<%= dom_id(exception) %>"
+                class="group"
+                style="cursor: pointer; position: relative"
+                data-action="click->faultline#selectRow"
+                data-url="<%= logged_exception_path(exception) %>"
+                data-index="<%= index %>"
+                data-faultline-index-param="<%= index %>">
+
+              <%# Severity indicator dot %>
+              <td>
+                <span class="fl-count-indicator fl-badge-<%= severity_for(exception) %>"
+                      style="background: var(--fl-<%= severity_for(exception) %>-light); color: var(--fl-<%= severity_for(exception) %>); width: 0.5rem; height: 0.5rem; min-width: 0; padding: 0; border-radius: 50%">
                 </span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                <%= exception.controller_name %>
+
+              <%# Exception class with severity badge %>
+              <td>
+                <span class="fl-badge fl-badge-<%= severity_for(exception) %>"><%= exception.exception_class %></span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <%= exception.action_name %>
+
+              <%# Source (controller + action) %>
+              <td>
+                <div class="flex items-center gap-1.5">
+                  <span class="fl-mono text-xs" style="color: var(--fl-text-secondary)"><%= exception.controller_name %></span>
+                  <span class="fl-mono text-xs" style="color: var(--fl-text-muted)">#<%= exception.action_name %></span>
+                </div>
               </td>
-              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                <%= link_to exception.message&.truncate(100), logged_exception_path(exception),
-                  class: "text-indigo-600 hover:text-indigo-900",
-                  data: { turbo_frame: "exception-details" } %>
+
+              <%# Message (truncated) %>
+              <td>
+                <div class="fl-msg">
+                  <%= exception.message&.truncate(120) %>
+                </div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <%= pretty_exception_date(exception) %>
+
+              <%# Occurrence count %>
+              <td>
+                <% count = exception_count_for(exception.exception_class) %>
+                <span class="fl-badge fl-badge-muted"><%= count %></span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <%= link_to t(".delete"), logged_exception_path(exception),
-                  class: "text-red-600 hover:text-red-900",
-                  data: { turbo_method: :delete, turbo_confirm: t(".confirm_delete"), turbo_stream: true } %>
+
+              <%# Time (relative) %>
+              <td class="fl-date"><%= pretty_exception_date(exception) %></td>
+
+              <%# Actions (delete on hover) %>
+              <td style="text-align: right">
+                <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <%= link_to logged_exception_path(exception),
+                    class: "fl-icon-btn",
+                    style: "color: var(--fl-text-muted)",
+                    title: "View details",
+                    data: { turbo_frame: "exception-details", action: "click->faultline#stopPropagation" } do %>
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                  <% end %>
+                  <%= link_to logged_exception_path(exception),
+                    class: "fl-icon-btn",
+                    style: "color: var(--fl-danger)",
+                    title: "Delete",
+                    data: { turbo_method: :delete, turbo_confirm: t(".confirm_delete"), turbo_stream: true, action: "click->faultline#stopPropagation" } do %>
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                  <% end %>
+                </div>
               </td>
             </tr>
           <% end %>
         </tbody>
       </table>
     </div>
-  <% end %>
 
-  <%# Pagination %>
-  <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-    <div class="flex-1 flex justify-between sm:hidden">
-      <%= will_paginate @exceptions, params: { controller: "logged_exceptions", action: "index" }.merge(params_filters),
-        inner_window: 1, outer_window: 0, previous_label: "Previous", next_label: "Next" %>
-    </div>
-    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-      <div>
-        <p class="text-sm text-gray-700">
-          Showing <span class="font-medium"><%= @exceptions.offset + 1 %></span>
-          to <span class="font-medium"><%= @exceptions.offset + @exceptions.length %></span>
-          of <span class="font-medium"><%= @exceptions.total_entries %></span> exceptions
+    <%# ─── Pagination ─────────────────────────────────────────── %>
+    <% if @exceptions.respond_to?(:total_pages) && @exceptions.total_pages > 1 %>
+      <div class="fl-pagination">
+        <p class="text-xs" style="color: var(--fl-text-muted)">
+          Showing <span class="font-medium" style="color: var(--fl-text-secondary)"><%= @exceptions.offset + 1 %></span>
+          to <span class="font-medium" style="color: var(--fl-text-secondary)"><%= [@exceptions.offset + @exceptions.length, @exceptions.total_entries].min %></span>
+          of <span class="font-medium" style="color: var(--fl-text-secondary)"><%= @exceptions.total_entries %></span>
         </p>
+        <div>
+          <%= will_paginate @exceptions, params: { controller: "logged_exceptions", action: "index" }.merge(params_filters),
+            inner_window: 2, outer_window: 1, previous_label: "&laquo;", next_label: "&raquo;" %>
+        </div>
       </div>
-      <div>
-        <%= will_paginate @exceptions, params: { controller: "logged_exceptions", action: "index" }.merge(params_filters),
-          inner_window: 2, outer_window: 1, previous_label: "&laquo;", next_label: "&raquo;" %>
-      </div>
-    </div>
-  </div>
+    <% end %>
+  <% end %>
 </div>

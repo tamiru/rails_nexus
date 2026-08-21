@@ -1,5 +1,8 @@
 # Faultline Rails
 
+[![Gem Version](https://badge.fury.io/rb/faultline-rails.svg)](https://rubygems.org/gems/faultline-rails)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa)](https://github.com/sponsors/tamiru)
+
 Faultline is a production-friendly exception dashboard for Rails 8. It records unhandled application exceptions and gives your team a fast, searchable view of messages, requests, environments, and backtraces.
 
 The dashboard is server-rendered and progressively enhanced with:
@@ -255,6 +258,17 @@ bin/rails test
 ```
 
 The repository includes a Rails dummy application under `test/dummy` for engine integration testing.
+
+## Support
+
+If you find Faultline useful, consider supporting the project:
+
+- ⭐ **Star the repo** — Help others discover Faultline
+- 🐛 **Report issues** — Help improve the gem
+- 💡 **Contribute** — Submit pull requests
+- 💰 **Sponsor** — [GitHub Sponsors](https://github.com/sponsors/tamiru)
+
+Your support helps maintain and improve Faultline for the Rails community.
 
 ## License
 

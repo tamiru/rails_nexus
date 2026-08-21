@@ -29,5 +29,27 @@ module Faultline
         end
       end
     end
+
+    # Load notifications and cleanup modules
+    initializer "faultline.notifications" do
+      require "faultline/notifications"
+      require "faultline/cleanup"
+    end
+
+    # Register rake tasks
+    initializer "faultline.rake_tasks" do
+      load "tasks/faultline.rake" if Rake.respond_to?(:application)
+    end
+
+    # Hook into LoggedException after_create for notifications
+    initializer "faultline.after_create" do
+      ActiveSupport.on_load(:active_record) do
+        Faultline::LoggedException.after_create do |exception|
+          Faultline::Notifications.notify(exception)
+        rescue StandardError => e
+          Rails.logger.error("[Faultline] Notification error: #{e.message}")
+        end
+      end
+    end
   end
 end
