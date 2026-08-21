@@ -10,7 +10,9 @@ module Faultline
 
       Faultline::LoggedException.class_eval do
         def self.ransackable_attributes(auth_object = nil)
-          %w[exception_class controller_name action_name message created_at]
+          %w[action_name backtrace controller_name created_at environment
+             exception_class id message remote_ip request
+             updated_at user_agent user_info]
         end
 
         def self.ransackable_associations(auth_object = nil)
