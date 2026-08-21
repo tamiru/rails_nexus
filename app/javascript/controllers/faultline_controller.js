@@ -251,7 +251,7 @@ export default class extends Controller {
   toggleTheme() {
     const themeController = this.application.getControllerForElementAndIdentifier(
       document.documentElement,
-      "faultline--theme"
+      "faultline-theme"
     )
     if (themeController) {
       themeController.toggle()
