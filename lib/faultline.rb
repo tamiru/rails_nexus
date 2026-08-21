@@ -6,6 +6,7 @@ require "ipaddr"
 require "socket"
 require "faultline/version"
 require "faultline/configuration"
+require "faultline/logger"
 require "faultline/engine"
 
 module Faultline
@@ -27,6 +28,11 @@ module Faultline
 
     def application_name=(value)
       configuration.application_name = value
+    end
+
+    # Convenience logger accessor
+    def logger
+      Faultline::Logger
     end
   end
 
@@ -116,6 +122,10 @@ module Faultline
         end
       end if rails_filter_parameters.any?
 
+      # Log with structured logger
+      Faultline::Logger.error(exception, controller: self, extra: data)
+
+      # Create the record
       LoggedException.create_from_exception(self, exception, data)
     end
   end

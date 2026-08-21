@@ -1,148 +1,217 @@
 <% page_title t(".title") %>
 
-<div class="space-y-6" data-controller="faultline">
-  <%# Header %>
-  <div class="md:flex md:items-center md:justify-between">
-    <div class="flex-1 min-w-0">
-      <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-        <%= t(".title") %>
-      </h1>
-      <p class="mt-1 text-sm text-gray-500"><%= t(".subtitle") %></p>
-    </div>
-    <div class="mt-4 flex md:mt-0 md:ml-4">
-      <%= button_to t(".clear_history"), clear_logged_exceptions_path, method: :post,
-        class: "inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500",
-        form: { data: { turbo_stream: true } },
-        data: { turbo_confirm: t(".confirm_clear") } %>
-    </div>
-  </div>
+<div class="space-y-4" data-controller="faultline" data-faultline-shortcuts-value="<%= Faultline.configuration.keyboard_shortcuts %>">
 
-  <%# Ransack Search Form %>
-  <div class="bg-white shadow rounded-lg p-4">
+  <%# ─── Breadcrumbs ─────────────────────────────────────────── %>
+  <nav class="fl-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="fl-breadcrumb">Dashboard</a>
+    <span class="fl-breadcrumb-sep">/</span>
+    <span class="fl-breadcrumb-current">Exceptions</span>
+    <% if @stats && @stats[:today] > 0 %>
+      <span class="fl-breadcrumb-sep">·</span>
+      <span class="fl-badge fl-badge-danger" style="margin-left: 0.25rem"><span class="fl-pulse"></span> <%= @stats[:today] %> today</span>
+    <% end %>
+  </nav>
+
+  <%# ─── Stats Overview ──────────────────────────────────────── %>
+  <% if @stats %>
+    <div class="fl-stats">
+      <div class="fl-stat">
+        <span class="fl-stat-label">Total Exceptions</span>
+        <span class="fl-stat-value"><%= number_with_delimiter(@stats[:total]) %></span>
+        <span class="fl-stat-change">All time</span>
+      </div>
+      <div class="fl-stat">
+        <span class="fl-stat-label">This Week</span>
+        <span class="fl-stat-value <%= 'danger' if @stats[:this_week] > 10 %>"><%= @stats[:this_week] %></span>
+        <span class="fl-stat-change">Last 7 days</span>
+      </div>
+      <div class="fl-stat">
+        <span class="fl-stat-label">Today</span>
+        <span class="fl-stat-value <%= 'danger' if @stats[:today] > 5 %>"><%= @stats[:today] %></span>
+        <span class="fl-stat-change <%= 'up' if @stats[:today] > @stats[:yesterday] %>">
+          <% if @stats[:yesterday] > 0 %>
+            <%= ((@stats[:today].to_f / [@stats[:yesterday], 1].max - 1) * 100).round %>% vs yesterday
+          <% else %>
+            vs yesterday
+          <% end %>
+        </span>
+      </div>
+      <div class="fl-stat">
+        <span class="fl-stat-label">Unique Classes</span>
+        <span class="fl-stat-value"><%= @stats[:top_classes]&.size || 0 %></span>
+        <span class="fl-stat-change">Exception types</span>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Filters Card ────────────────────────────────────────── %>
+  <div class="fl-card">
+    <%# Filter header with icon %>
+    <div class="fl-filters" style="padding-bottom: 0.5rem">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4" style="color: var(--fl-text-muted)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>
+        <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--fl-text-muted)">Filters</span>
+        <% if filtered? %>
+          <%= link_to "Clear all", logged_exceptions_path(per_page: params[:per_page]), class: "ml-auto text-xs font-medium", style: "color: var(--fl-primary)" %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# Filter form %>
     <%= search_form_for @q, url: query_logged_exceptions_path, data: { turbo_frame: "exceptions" } do |f| %>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
-          <%= f.label :exception_class_cont, "Exception Class", class: "block text-sm font-medium text-gray-700" %>
-          <%= f.search_field :exception_class_cont,
-            class: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm",
-            placeholder: "e.g. RuntimeError" %>
+      <div class="fl-filters">
+        <div class="fl-filter-group">
+          <label>Exception Type</label>
+          <%= f.select :exception_class_cont,
+            options_for_select(@exception_names.map { |n| [n, n] }, params.dig(:q, :exception_class_cont)),
+            { include_blank: "All types" },
+            class: "fl-select",
+            data: { action: "change->faultline#submit" } %>
         </div>
-        <div>
-          <%= f.label :controller_name_cont, "Controller", class: "block text-sm font-medium text-gray-700" %>
-          <%= f.search_field :controller_name_cont,
-            class: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm",
-            placeholder: "e.g. users" %>
+
+        <div class="fl-filter-group">
+          <label>Controller</label>
+          <%= f.select :controller_name_cont,
+            options_for_select(@controller_actions.map { |a| [a, a] }, params.dig(:q, :controller_name_cont)),
+            { include_blank: "All controllers" },
+            class: "fl-select",
+            data: { action: "change->faultline#submit" } %>
         </div>
-        <div>
-          <%= f.label :message_cont, "Message", class: "block text-sm font-medium text-gray-700" %>
-          <%= f.search_field :message_cont,
-            class: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm",
-            placeholder: "Search messages..." %>
+
+        <div class="fl-filter-group">
+          <label>Time Range</label>
+          <%= select_tag :date_ranges_filter,
+            options_for_select([
+              ["All time", ""],
+              ["Today", "1"],
+              ["Last 3 days", "3"],
+              ["Last 7 days", "7"],
+              ["Last 30 days", "30"]
+            ], params[:date_ranges_filter]),
+            class: "fl-select",
+            data: { action: "change->faultline#submit" } %>
         </div>
-        <div class="flex items-end">
-          <%= f.submit "Search", class: "w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+
+        <div class="fl-filter-group" style="min-width: 240px">
+          <label>Search</label>
+          <div class="fl-search">
+            <svg class="fl-search-icon w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+            <%= f.search_field :message_cont,
+              placeholder: "Search messages...",
+              class: "fl-input",
+              style: "padding-left: 2.25rem",
+              data: { action: "input->faultline#debouncedSubmit" } %>
+            <span class="fl-search-kbd">/</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <%= f.submit "Apply", class: "fl-btn fl-btn-primary" %>
         </div>
       </div>
+
+      <%# Active filter pills %>
+      <% pills = active_filter_pills %>
+      <% if pills.any? %>
+        <div class="fl-filter-pills">
+          <% pills.each do |pill| %>
+            <span class="fl-filter-pill">
+              <strong><%= pill[:label] %>:</strong> <%= pill[:value] %>
+              <% new_params = params.to_unsafe_h.except(pill[:param]) %>
+              <%= link_to "×", logged_exceptions_path(new_params), class: "fl-filter-pill-x" %>
+            </span>
+          <% end %>
+        </div>
+      <% end %>
     <% end %>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-    <%# Sidebar %>
-    <div class="lg:col-span-1">
-      <div class="bg-white shadow rounded-lg p-4 space-y-6">
-        <%# Exception Class Filter %>
-        <div>
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Exception Class</h3>
-          <nav class="mt-2 space-y-1 max-h-48 overflow-y-auto">
-            <% @exception_names.each do |name| %>
-              <%= link_to name,
-                query_logged_exceptions_path(exception_names_filter: name),
-                class: "block px-3 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                data: { turbo_frame: "exceptions" } %>
-            <% end %>
-          </nav>
-        </div>
+  <%# ─── Content Area ────────────────────────────────────────── %>
+  <div class="flex gap-4" style="min-height: 400px">
 
-        <%# Controller/Action Filter %>
-        <div>
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Controller</h3>
-          <nav class="mt-2 space-y-1 max-h-48 overflow-y-auto">
-            <% @controller_actions.each do |action| %>
-              <%= link_to action,
-                query_logged_exceptions_path(controller_actions_filter: action),
-                class: "block px-3 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                data: { turbo_frame: "exceptions" } %>
-            <% end %>
-          </nav>
-        </div>
+    <%# ─── Exception List ──────────────────────────────────── %>
+    <div class="flex-1 min-w-0">
 
-        <%# Date Filter %>
-        <div>
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Time Range</h3>
-          <nav class="mt-2 space-y-1">
-            <% [[t(".today"), 1], [t(".last_few_days"), 3], [t(".last_7_days"), 7], [t(".last_30_days"), 30]].each do |label, days| %>
-              <%= link_to label,
-                query_logged_exceptions_path(date_ranges_filter: days),
-                class: "block px-3 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                data: { turbo_frame: "exceptions" } %>
-            <% end %>
-          </nav>
-        </div>
+      <%# Loading indicator %>
+      <div id="activity" data-faultline-target="activity" class="fl-card p-3 flex items-center gap-3" role="status" aria-live="polite" hidden>
+        <svg class="animate-spin h-4 w-4 shrink-0" style="color: var(--fl-primary)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-sm font-medium" style="color: var(--fl-primary)"><%= t(".loading") %></p>
+      </div>
 
-        <%# Text Search %>
-        <div>
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Quick Search</h3>
-          <%= form_with url: query_logged_exceptions_path, method: :get,
-            data: { turbo_frame: "exceptions", action: "submit->faultline#submit" } do |form| %>
-            <div class="mt-2 flex gap-2">
-              <%= form.search_field :query,
-                placeholder: "Search...",
-                class: "flex-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" %>
-              <%= form.submit "Go",
-                class: "inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+      <%# Exception details (desktop split, mobile full) %>
+      <div id="exception-detail-desktop" class="hidden lg:block fl-card mb-4" hidden>
+        <%= turbo_frame_tag "exception-details" do %>
+          <div class="text-center py-12">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto" style="background: var(--fl-bg-secondary)">
+              <svg class="w-5 h-5" style="color: var(--fl-text-muted)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
             </div>
-          <% end %>
-        </div>
-
-        <%# RSS Feed %>
-        <div class="pt-4 border-t border-gray-200">
-          <%= link_to "📡 RSS Feed", feed_logged_exceptions_path(format: :rss),
-            class: "text-sm text-gray-500 hover:text-indigo-600" %>
-        </div>
-      </div>
-    </div>
-
-    <%# Main Content %>
-    <div class="lg:col-span-3 space-y-6">
-      <%# Activity indicator %>
-      <div id="activity" data-faultline-target="activity" class="rounded-md bg-blue-50 p-4" role="status" aria-live="polite" hidden>
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <p class="mt-2 text-xs" style="color: var(--fl-text-muted)">Select an exception to view details</p>
+            <p class="mt-1 text-xs" style="color: var(--fl-text-muted)">Click a row or press <span class="fl-kbd">↓</span> <span class="fl-kbd">↑</span> to navigate</p>
           </div>
-          <div class="ml-3">
-            <p class="text-sm font-medium text-blue-800"><%= t(".loading") %></p>
-          </div>
-        </div>
+        <% end %>
       </div>
 
-      <%# Exception Details Panel %>
-      <%= turbo_frame_tag "exception-details", class: "bg-white shadow rounded-lg p-6" do %>
-        <div class="text-center py-12 text-gray-500">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <p class="mt-2 text-sm"><%= t(".select_exception") %></p>
-        </div>
-      <% end %>
-
-      <%# Exceptions List %>
+      <%# Exception table %>
       <%= turbo_frame_tag "exceptions" do %>
         <%= render "exceptions" %>
       <% end %>
     </div>
   </div>
+
+  <%# ─── Keyboard Shortcuts Dialog ───────────────────────────── %>
+  <% if Faultline.configuration.keyboard_shortcuts %>
+    <div class="fl-shortcuts-overlay" data-faultline-target="shortcutsDialog">
+      <div class="fl-shortcuts">
+        <div class="flex items-center justify-between mb-4">
+          <h3>Keyboard Shortcuts</h3>
+          <button type="button" class="fl-icon-btn" data-action="click->faultline#closeShortcuts">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Focus search</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">/</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Navigate down</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">j</span> or <span class="fl-kbd">↓</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Navigate up</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">k</span> or <span class="fl-kbd">↑</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Open selected</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">Enter</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Go to previous</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">p</span> or <span class="fl-kbd">←</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Go to next</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">n</span> or <span class="fl-kbd">→</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Toggle theme</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">t</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Close panel / Clear</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">Esc</span></div>
+        </div>
+        <div class="fl-shortcut-row">
+          <span class="fl-shortcut-label">Show shortcuts</span>
+          <div class="fl-shortcut-keys"><span class="fl-kbd">?</span></div>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </div>

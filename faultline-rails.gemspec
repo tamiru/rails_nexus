@@ -14,6 +14,7 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/tamiru/faultline-rails/tree/main"
   spec.metadata["changelog_uri"] = "https://github.com/tamiru/faultline-rails/blob/main/CHANGELOG.md"
+  spec.metadata["funding_uri"] = "https://github.com/sponsors/tamiru"
 
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
     Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.md", "faultline-rails.gemspec"]

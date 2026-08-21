@@ -13,6 +13,9 @@ module Faultline
 
       desc "Install Faultline: creates migration, initializer, and mounts routes."
 
+      class_option :modern, type: :boolean, default: false,
+                   desc: "Generate customizable views, layout, and Stimulus controller"
+
       def self.next_migration_number(path)
         # Generate timestamp-based migration number for Rails 8.1+ compatibility
         Time.now.utc.strftime("%Y%m%d%H%M%S")
@@ -41,6 +44,12 @@ module Faultline
         say "Add the following to your ApplicationController:\n\n  include Faultline::ExceptionLoggable\n"
       end
 
+      def generate_modern_views
+        return unless options[:modern]
+
+        generate "faultline:customize"
+      end
+
       def display_post_install
         say ""
         say "Faultline has been installed!", :green
@@ -51,6 +60,12 @@ module Faultline
         say ""
         say "Protect the dashboard by editing config/initializers/faultline.rb"
         say ""
+
+        if options[:modern]
+          say "Modern views generated! Edit app/views/layouts/faultline/application.html.erb", :green
+          say "to match your host app's navigation."
+          say ""
+        end
       end
 
       private
