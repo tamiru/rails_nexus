@@ -39,3 +39,11 @@ Rails.application.config.to_prepare do
     # config.per_page = 30
   end
 end
+
+# Rails 8+ compatibility: Faultline's old rescue_action pattern doesn't work
+# anymore. This registers rescue_from to log exceptions via log_exception_handler.
+#
+# Remove this block if you have your own global exception logging.
+ApplicationController.class_eval do
+  rescue_from Exception, with: :log_exception_handler
+end

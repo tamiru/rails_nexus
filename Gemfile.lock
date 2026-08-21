@@ -1,8 +1,9 @@
 PATH
   remote: .
   specs:
-    faultline-rails (0.2.0)
+    faultline-rails (0.3.0)
       rails (~> 8.0, >= 8.0.0)
+      ransack (~> 4.0)
       stimulus-rails (~> 1.3)
       turbo-rails (~> 2.0)
       will_paginate (~> 4.0)
@@ -181,6 +182,10 @@ GEM
       tsort (>= 0.2)
       zeitwerk (~> 2.6)
     rake (13.4.2)
+    ransack (4.4.1)
+      activerecord (>= 7.2)
+      activesupport (>= 7.2)
+      i18n
     rbs (4.0.3)
       logger
       prism (>= 1.6.0)
@@ -227,6 +232,7 @@ DEPENDENCIES
   faultline-rails!
   puma
   rack (>= 3.2)
+  ransack (~> 4.0)
   sprockets-rails
   sqlite3 (>= 2.1)
   will_paginate (~> 4.0)

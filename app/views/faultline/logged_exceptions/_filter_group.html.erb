@@ -1,9 +1,10 @@
 <div>
-  <h3><%= title %></h3>
-  <nav class="fl-nav fl-nav-scroll">
+  <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider"><%= title %></h3>
+  <nav class="mt-2 space-y-1 max-h-48 overflow-y-auto">
     <% values.each do |value| %>
-      <li><%= link_to value, query_logged_exceptions_path(parameter => value),
-        data: { turbo_frame: "exceptions" } %></li>
+      <%= link_to value, query_logged_exceptions_path(parameter => value),
+        class: "block px-3 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+        data: { turbo_frame: "exceptions" } %>
     <% end %>
   </nav>
 </div>

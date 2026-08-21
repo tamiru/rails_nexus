@@ -1,63 +1,145 @@
 <% page_title t(".title") %>
 
-<div data-controller="faultline" class="fl-container">
-  <div class="fl-header">
-    <div>
-      <p class="fl-brand">Faultline</p>
-      <h1><%= t(".title") %></h1>
-      <p class="fl-subtitle"><%= t(".subtitle") %></p>
+<div class="space-y-6" data-controller="faultline">
+  <%# Header %>
+  <div class="md:flex md:items-center md:justify-between">
+    <div class="flex-1 min-w-0">
+      <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+        <%= t(".title") %>
+      </h1>
+      <p class="mt-1 text-sm text-gray-500"><%= t(".subtitle") %></p>
     </div>
-    <%= button_to t(".clear_history"), clear_logged_exceptions_path, method: :post,
-      class: "fl-btn fl-btn-danger",
-      form: { data: { turbo_stream: true } },
-      data: { turbo_confirm: t(".confirm_clear") } %>
+    <div class="mt-4 flex md:mt-0 md:ml-4">
+      <%= button_to t(".clear_history"), clear_logged_exceptions_path, method: :post,
+        class: "inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500",
+        form: { data: { turbo_stream: true } },
+        data: { turbo_confirm: t(".confirm_clear") } %>
+    </div>
   </div>
 
-  <div class="fl-grid">
-    <aside class="fl-card fl-sidebar">
-      <h2><%= t(".filters") %></h2>
+  <%# Ransack Search Form %>
+  <div class="bg-white shadow rounded-lg p-4">
+    <%= search_form_for @q, url: query_logged_exceptions_path, data: { turbo_frame: "exceptions" } do |f| %>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <%= f.label :exception_class_cont, "Exception Class", class: "block text-sm font-medium text-gray-700" %>
+          <%= f.search_field :exception_class_cont,
+            class: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm",
+            placeholder: "e.g. RuntimeError" %>
+        </div>
+        <div>
+          <%= f.label :controller_name_cont, "Controller", class: "block text-sm font-medium text-gray-700" %>
+          <%= f.search_field :controller_name_cont,
+            class: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm",
+            placeholder: "e.g. users" %>
+        </div>
+        <div>
+          <%= f.label :message_cont, "Message", class: "block text-sm font-medium text-gray-700" %>
+          <%= f.search_field :message_cont,
+            class: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm",
+            placeholder: "Search messages..." %>
+        </div>
+        <div class="flex items-end">
+          <%= f.submit "Search", class: "w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
 
-      <nav class="fl-nav" aria-label="<%= t(".filters") %>">
-        <li><%= link_to t(".latest_exceptions"), logged_exceptions_path,
-          data: { turbo_frame: "exceptions" } %></li>
-      </nav>
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <%# Sidebar %>
+    <div class="lg:col-span-1">
+      <div class="bg-white shadow rounded-lg p-4 space-y-6">
+        <%# Exception Class Filter %>
+        <div>
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Exception Class</h3>
+          <nav class="mt-2 space-y-1 max-h-48 overflow-y-auto">
+            <% @exception_names.each do |name| %>
+              <%= link_to name,
+                query_logged_exceptions_path(exception_names_filter: name),
+                class: "block px-3 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                data: { turbo_frame: "exceptions" } %>
+            <% end %>
+          </nav>
+        </div>
 
-      <%= render "filter_group", title: t(".exception"), values: @exception_names, parameter: :exception_names_filter %>
-      <%= render "filter_group", title: t(".controller_action"), values: @controller_actions, parameter: :controller_actions_filter %>
+        <%# Controller/Action Filter %>
+        <div>
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Controller</h3>
+          <nav class="mt-2 space-y-1 max-h-48 overflow-y-auto">
+            <% @controller_actions.each do |action| %>
+              <%= link_to action,
+                query_logged_exceptions_path(controller_actions_filter: action),
+                class: "block px-3 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                data: { turbo_frame: "exceptions" } %>
+            <% end %>
+          </nav>
+        </div>
 
-      <div>
-        <h3><%= t(".dates") %></h3>
-        <nav class="fl-nav">
-          <% [[t(".today"), 1], [t(".last_few_days"), 3], [t(".last_7_days"), 7], [t(".last_30_days"), 30]].each do |label, days| %>
-            <li><%= link_to label, query_logged_exceptions_path(date_ranges_filter: days),
-              data: { turbo_frame: "exceptions" } %></li>
+        <%# Date Filter %>
+        <div>
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Time Range</h3>
+          <nav class="mt-2 space-y-1">
+            <% [[t(".today"), 1], [t(".last_few_days"), 3], [t(".last_7_days"), 7], [t(".last_30_days"), 30]].each do |label, days| %>
+              <%= link_to label,
+                query_logged_exceptions_path(date_ranges_filter: days),
+                class: "block px-3 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                data: { turbo_frame: "exceptions" } %>
+            <% end %>
+          </nav>
+        </div>
+
+        <%# Text Search %>
+        <div>
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Quick Search</h3>
+          <%= form_with url: query_logged_exceptions_path, method: :get,
+            data: { turbo_frame: "exceptions", action: "submit->faultline#submit" } do |form| %>
+            <div class="mt-2 flex gap-2">
+              <%= form.search_field :query,
+                placeholder: "Search...",
+                class: "flex-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" %>
+              <%= form.submit "Go",
+                class: "inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+            </div>
           <% end %>
-        </nav>
-      </div>
+        </div>
 
-      <div>
-        <%= form_with url: query_logged_exceptions_path, method: :get,
-          data: { turbo_frame: "exceptions", action: "submit->faultline#submit" } do |form| %>
-          <h3><%= form.label :query, t(".search") %></h3>
-          <div class="fl-search">
-            <%= form.search_field :query, placeholder: t(".search_placeholder") %>
-            <%= form.submit t(".find"), class: "fl-btn fl-btn-primary fl-btn-sm" %>
+        <%# RSS Feed %>
+        <div class="pt-4 border-t border-gray-200">
+          <%= link_to "📡 RSS Feed", feed_logged_exceptions_path(format: :rss),
+            class: "text-sm text-gray-500 hover:text-indigo-600" %>
+        </div>
+      </div>
+    </div>
+
+    <%# Main Content %>
+    <div class="lg:col-span-3 space-y-6">
+      <%# Activity indicator %>
+      <div id="activity" data-faultline-target="activity" class="rounded-md bg-blue-50 p-4" role="status" aria-live="polite" hidden>
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
           </div>
-        <% end %>
+          <div class="ml-3">
+            <p class="text-sm font-medium text-blue-800"><%= t(".loading") %></p>
+          </div>
+        </div>
       </div>
 
-      <%= render "feed" %>
-    </aside>
-
-    <div>
-      <div id="activity" data-faultline-target="activity" class="fl-status" role="status" aria-live="polite" hidden>
-        <%= t(".loading") %>
-      </div>
-
-      <%= turbo_frame_tag "exception-details", class: "fl-card" do %>
-        <div class="fl-empty"><%= t(".select_exception") %></div>
+      <%# Exception Details Panel %>
+      <%= turbo_frame_tag "exception-details", class: "bg-white shadow rounded-lg p-6" do %>
+        <div class="text-center py-12 text-gray-500">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <p class="mt-2 text-sm"><%= t(".select_exception") %></p>
+        </div>
       <% end %>
 
+      <%# Exceptions List %>
       <%= turbo_frame_tag "exceptions" do %>
         <%= render "exceptions" %>
       <% end %>

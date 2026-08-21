@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.email       = ["tamiruhailu@gmail.com"]
   spec.homepage    = "https://github.com/tamiru/faultline-rails"
   spec.summary     = "A Rails 8 exception dashboard powered by Hotwire."
-  spec.description = "Faultline logs Rails exceptions and provides a Turbo, Stimulus, and Tailwind-compatible dashboard."
+  spec.description = "Faultline logs Rails exceptions and provides a Turbo, Stimulus, and Tailwind-compatible dashboard with Ransack search."
   spec.license     = "MIT"
 
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
@@ -25,4 +25,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "stimulus-rails", "~> 1.3"
   spec.add_dependency "turbo-rails", "~> 2.0"
   spec.add_dependency "will_paginate", "~> 4.0"
+
+  # Optional: Ransack provides advanced search/filter UI
+  spec.add_dependency "ransack", "~> 4.0"
 end

@@ -5,9 +5,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 gemspec
 
 gem "puma"
-
 gem "sqlite3", ">= 2.1"
-
 gem "sprockets-rails"
 
 # Rails 8 on Ruby 4 uses the current Rack API (the old Rack 3.0 lock had a
@@ -18,3 +16,4 @@ gem "rack", ">= 3.2"
 # gem "debug", ">= 1.0.0"
 
 gem "will_paginate", "~> 4.0"
+gem "ransack", "~> 4.0"

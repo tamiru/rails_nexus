@@ -9,11 +9,15 @@ module Faultline
     def index
       @exception_names = LoggedException.class_names
       @controller_actions = LoggedException.controller_actions
-      @exceptions = filtered_exceptions
+      @q = ransack_search
+      @exceptions = @q.result(distinct: true)
+                      .paginate(page: params[:page], per_page: Faultline.configuration.per_page || 30)
     end
 
     def query
-      @exceptions = filtered_exceptions
+      @q = ransack_search
+      @exceptions = @q.result(distinct: true)
+                      .paginate(page: params[:page], per_page: Faultline.configuration.per_page || 30)
 
       respond_to do |format|
         format.turbo_stream
@@ -55,7 +59,10 @@ module Faultline
         filtered_scope
       end
       exceptions.delete_all
-      @exceptions = filtered_exceptions
+
+      @q = ransack_search
+      @exceptions = @q.result(distinct: true)
+                      .paginate(page: params[:page], per_page: Faultline.configuration.per_page || 30)
 
       respond_to do |format|
         format.turbo_stream
@@ -65,11 +72,14 @@ module Faultline
 
     def clear
       LoggedException.delete_all
-      @exceptions = filtered_exceptions
+
+      @q = ransack_search
+      @exceptions = @q.result(distinct: true)
+                      .paginate(page: params[:page], per_page: Faultline.configuration.per_page || 30)
 
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_back fallback_location: root_path }
+        format.html { redirect_back fallback_location: faultline_root_path }
       end
     end
 
@@ -82,17 +92,27 @@ module Faultline
       head :forbidden
     end
 
+    def faultline_root_path
+      main_app.respond_to?(:root_path) ? main_app.root_path : "/"
+    end
+
+    def ransack_search
+      if defined?(Ransack)
+        LoggedException.ransack(params[:q])
+      else
+        scope = filtered_scope
+        Struct.new(:result).new(scope)
+      end
+    end
+
     def params_filters
       {
+        q: params[:q],
         query: params[:query],
         date_ranges_filter: params[:date_ranges_filter],
         exception_names_filter: params[:exception_names_filter],
         controller_actions_filter: params[:controller_actions_filter]
       }.compact
-    end
-
-    def filtered_exceptions
-      filtered_scope.paginate(page: params[:page], per_page: Faultline.configuration.per_page || 30)
     end
 
     def filtered_scope
