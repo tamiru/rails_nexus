@@ -959,3 +959,11 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
 .fl-text-sm { font-size: 0.875rem; }
 .fl-text-muted { color: var(--fl-text-muted); }
 .fl-font-semibold { font-weight: 600; }
+
+/* ─── Layout (override host app resets) ─────────────────── */
+html { height: 100%; }
+body { height: 100vh; overflow: hidden; margin: 0; }
+body > div.min-h-full { height: 100vh; min-height: 100vh; }
+body > div.min-h-full > .fl-sidebar { height: 100vh; min-height: 100vh; }
+body > div.min-h-full > div:last-child { display: flex; flex-direction: column; overflow: hidden; }
+body > div.min-h-full > div:last-child > main { flex: 1; overflow-y: auto; }
