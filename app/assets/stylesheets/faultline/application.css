@@ -124,45 +124,4 @@ table { border-collapse: collapse; width: 100%; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 .sr-only-focusable:focus { position: static; width: auto; height: auto; padding: 0; margin: 0; overflow: visible; clip: auto; border: 0; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   TAILWIND OVERRIDES (used when Tailwind CSS IS available)
-   ═══════════════════════════════════════════════════════════════════ */
 
-/* Tailwind-compatible pagination */
-.fl-pagination .pagination {
-  @apply flex flex-wrap gap-2 items-center list-none m-0 p-0;
-}
-.fl-pagination .pagination a {
-  @apply px-3 py-1.5 rounded-md text-indigo-600 hover:bg-indigo-50 no-underline text-sm;
-}
-.fl-pagination .pagination span.current {
-  @apply px-3 py-1.5 rounded-md bg-indigo-600 text-white font-semibold text-sm;
-}
-.fl-pagination .pagination span.gap {
-  @apply px-2 py-1.5 text-gray-400 text-sm;
-}
-
-/* Tailwind-compatible search input */
-.fl-search input[type="search"] {
-  @apply flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none;
-}
-
-/* Tailwind-compatible buttons */
-.fl-btn {
-  @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md text-sm font-semibold cursor-pointer no-underline;
-}
-.fl-btn-primary {
-  @apply bg-indigo-600 text-white hover:bg-indigo-700;
-}
-.fl-btn-danger {
-  @apply bg-red-600 text-white hover:bg-red-700;
-}
-.fl-btn-outline {
-  @apply bg-transparent border border-gray-300 text-red-700 hover:bg-red-50;
-}
-.fl-btn-sm {
-  @apply px-3 py-1.5 text-xs;
-}
-.fl-btn-ghost {
-  @apply bg-transparent text-gray-500 hover:bg-gray-100;
-}

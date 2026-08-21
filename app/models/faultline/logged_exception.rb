@@ -5,6 +5,16 @@ module Faultline
     self.table_name = "faultline_logged_exceptions"
     HOSTNAME = Socket.gethostname
 
+    def self.ransackable_attributes(auth_object = nil)
+      %w[action_name backtrace controller_name created_at environment
+         exception_class id message remote_ip request
+         updated_at user_agent user_info]
+    end
+
+    def self.ransackable_associations(auth_object = nil)
+      []
+    end
+
     class << self
       def create_from_exception(controller, exception, data)
         message = exception.message.to_s
