@@ -128,5 +128,44 @@ class CreateRailsNexusTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Mig
     add_index :rails_nexus_backups, [:model_name, :started_at]
     add_index :rails_nexus_backups, :status
     add_index :rails_nexus_backups, :started_at
+
+    # ─── rails_nexus_backup_configs ────────────────────────────────
+    create_table :rails_nexus_backup_configs do |t|
+      t.string  :name,          null: false
+      t.string  :description
+      t.string  :database_name, null: false
+      t.string  :adapter,       null: false, default: "mysql"
+      t.string  :host,          default: "localhost"
+      t.integer :port
+      t.string  :username
+      t.string  :password
+      t.text    :skip_tables,   default: "[]"
+
+      t.string  :storage_path,  null: false
+      t.integer :keep_count,    default: 30
+
+      t.boolean :compress,      default: true
+      t.boolean :encrypt,       default: false
+      t.string  :encrypt_password
+
+      t.boolean :rsync_enabled, default: false
+      t.string  :rsync_host
+      t.integer :rsync_port,    default: 22
+      t.string  :rsync_user
+      t.string  :rsync_path
+      t.boolean :rsync_mirror,  default: false
+
+      t.string  :notify_command
+      t.boolean :notify_on_success, default: true
+      t.boolean :notify_on_failure, default: true
+
+      t.string  :schedule_cron
+      t.boolean :enabled,       default: true
+
+      t.timestamps
+    end
+
+    add_index :rails_nexus_backup_configs, :name, unique: true
+    add_index :rails_nexus_backup_configs, :enabled
   end
 end
