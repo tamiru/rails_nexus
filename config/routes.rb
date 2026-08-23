@@ -45,10 +45,8 @@ RailsNexus::Engine.routes.draw do
   get "backup", to: "backup#index", as: :backup
   get "backup/files", to: "backup#files", as: :backup_files
   post "backup/trigger/:model", to: "backup#trigger", as: :backup_trigger
-  post "backup/scan", to: "backup#scan", as: :backup_scan
+  delete "backup/:id", to: "backup#destroy", as: :backup_destroy
   get "backup/health", to: "backup#health", as: :backup_health
-  get "backup/settings", to: "backup#settings", as: :backup_settings
-  patch "backup/settings", to: "backup#update_settings", as: :backup_update_settings
 
   # Settings and webhook management
   get "settings", to: "settings#index", as: :settings
