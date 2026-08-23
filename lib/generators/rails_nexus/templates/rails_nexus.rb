@@ -12,7 +12,7 @@ Rails.application.config.to_prepare do
     # ─── Authentication ──────────────────────────────────────
     # Protect the dashboard — only authorized users can access
     # config.auth_block = lambda do |controller|
-    #   controller.current_user&.admin?
+    #   controller.current_user&.admin?  # adjust to your auth model
     # end
 
     # ─── Exception Data ──────────────────────────────────────
