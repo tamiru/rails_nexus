@@ -114,7 +114,7 @@ class CreateRailsNexusTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Mig
 
     # ─── rails_nexus_backups ─────────────────────────────────────────
     create_table :rails_nexus_backups do |t|
-      t.string   :model_name,    null: false
+      t.string   :config_name,   null: false
       t.string   :status,        null: false
       t.text     :file_path
       t.bigint   :file_size
@@ -125,7 +125,7 @@ class CreateRailsNexusTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Mig
       t.datetime :completed_at
     end
 
-    add_index :rails_nexus_backups, [:model_name, :started_at]
+    add_index :rails_nexus_backups, [:config_name, :started_at]
     add_index :rails_nexus_backups, :status
     add_index :rails_nexus_backups, :started_at
 
@@ -148,6 +148,7 @@ class CreateRailsNexusTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Mig
       t.boolean :bzip2_compress, default: false
       t.boolean :encrypted,     default: false
       t.string  :encryption_password
+      t.boolean :encrypt_base64, default: false
       t.boolean :gpg_enabled,   default: false
       t.string  :gpg_password
 
@@ -157,6 +158,11 @@ class CreateRailsNexusTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Mig
       t.string  :rsync_user
       t.string  :rsync_path
       t.boolean :rsync_mirror,  default: false
+      t.boolean :rsync_archive, default: true
+      t.string  :rsync_directories
+      t.string  :rsync_excludes
+
+      t.string  :mysql_additional_options
 
       # S3 storage
       t.boolean :s3_enabled,    default: false

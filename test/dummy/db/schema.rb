@@ -115,7 +115,7 @@ ActiveRecord::Schema[8.1].define(version: 2024_03_30_122312) do
   end
 
   create_table "rails_nexus_backups", force: :cascade do |t|
-    t.string "model_name", null: false
+    t.string "config_name", null: false
     t.string "status", null: false
     t.text "file_path"
     t.bigint "file_size"
@@ -125,7 +125,7 @@ ActiveRecord::Schema[8.1].define(version: 2024_03_30_122312) do
     t.datetime "started_at", null: false
     t.datetime "completed_at"
 
-    t.index ["model_name", "started_at"], name: "index_rails_nexus_backups_on_model_name_and_started_at"
+    t.index ["config_name", "started_at"], name: "index_rails_nexus_backups_on_config_name_and_started_at"
     t.index ["started_at"], name: "index_rails_nexus_backups_on_started_at"
     t.index ["status"], name: "index_rails_nexus_backups_on_status"
   end

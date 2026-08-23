@@ -18,8 +18,8 @@ configs = [
     database_name: "tti_erp",
     host: "localhost",
     port: 3306,
-    username: "root",
-    # password: "36B042D8948C4086F37FA@root",  # stored in mysql-config/cnf — set via env or UI
+    username: "ENV[DB_USERNAME]",
+    password: "ENV[DB_PASSWORD]",
     skip_tables: "tti_erp.logged_exceptions,tti_erp.sessions,tti_erp.versions",
 
     storage_path: "~/dumps",
@@ -58,7 +58,8 @@ configs = [
     database_name: "tti_erp",
     host: "localhost",
     port: 3306,
-    username: "root",
+    username: "ENV[DB_USERNAME]",
+    password: "ENV[DB_PASSWORD]",
     skip_tables: "",
 
     storage_path: "~/dumps",
@@ -92,7 +93,7 @@ configs = [
     database_name: "tti_erp",
     host: "localhost",
     port: 3306,
-    username: "root",
+    username: "ENV[DB_USERNAME]",
     skip_tables: "tti_erp.logged_exceptions,tti_erp.sessions,tti_erp.versions",
 
     storage_path: "~/dumps/sync",

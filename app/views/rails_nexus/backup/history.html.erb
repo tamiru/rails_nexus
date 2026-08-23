@@ -9,7 +9,16 @@
     <span class="rn-breadcrumb-current">History</span>
   </nav>
 
-  <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup History</h1>
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup History</h1>
+      <p class="text-sm mt-1" style="color: var(--rn-text-muted)">Review completed runs, failures, and backup logs.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <%= link_to "Configurations", backup_path, class: "rn-btn rn-btn-ghost" %>
+      <%= link_to "New Config", new_backup_path, class: "rn-btn rn-btn-primary" %>
+    </div>
+  </div>
 
   <div class="rn-card">
     <% if @records.any? %>
@@ -30,11 +39,17 @@
           <tbody>
             <% @records.each do |record| %>
               <tr>
-                <td><span class="font-medium" style="color: var(--rn-text)"><%= record.model_name %></span></td>
+                <td><span class="font-medium" style="color: var(--rn-text)"><%= record.config_name %></span></td>
                 <td>
                   <span class="rn-badge rn-badge-<%= record.status == 'success' ? 'success' : record.status == 'failed' ? 'danger' : 'warning' %>">
                     <%= record.status.capitalize %>
                   </span>
+                  <% if record.status == 'failed' && record.error_message.present? %>
+                    <div class="text-xs mt-1" style="color: var(--rn-danger); cursor: pointer; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap" title="Click to expand" onclick="var el=this.nextElementSibling; el.style.display=el.style.display==='none'?'block':'none'">
+                      ✖ <%= truncate(record.error_message, length: 60) %>
+                    </div>
+                    <pre class="text-xs" style="display:none; color: var(--rn-danger); background: var(--rn-bg-secondary); padding: 8px; border-radius: 4px; margin-top: 4px; max-height: 120px; overflow: auto; white-space: pre-wrap; word-break: break-word"><%= record.error_message %></pre>
+                  <% end %>
                 </td>
                 <td><span class="text-xs rn-mono" style="color: var(--rn-text-secondary)"><%= record.file_path ? File.basename(record.file_path) : "—" %></span></td>
                 <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.file_size ? number_to_human_size(record.file_size) : "—" %></span></td>

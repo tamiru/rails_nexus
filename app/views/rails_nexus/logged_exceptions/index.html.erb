@@ -13,103 +13,23 @@
     <% end %>
   </nav>
 
-  <%# ─── Stats Overview ──────────────────────────────────────── %>
-  <% if @stats %>
-    <div class="rn-stats">
-      <div class="rn-stat">
-        <span class="rn-stat-label">Total Exceptions</span>
-        <span class="rn-stat-value"><%= number_with_delimiter(@stats[:total]) %></span>
-        <span class="rn-stat-change">All time</span>
-      </div>
-      <div class="rn-stat">
-        <span class="rn-stat-label">This Week</span>
-        <span class="rn-stat-value <%= 'danger' if @stats[:this_week] > 10 %>"><%= @stats[:this_week] %></span>
-        <span class="rn-stat-change">Last 7 days</span>
-      </div>
-      <div class="rn-stat">
-        <span class="rn-stat-label">Today</span>
-        <span class="rn-stat-value <%= 'danger' if @stats[:today] > 5 %>"><%= @stats[:today] %></span>
-        <span class="rn-stat-change <%= 'up' if @stats[:today] > @stats[:yesterday] %>">
-          <% if @stats[:yesterday] > 0 %>
-            <%= ((@stats[:today].to_f / [@stats[:yesterday], 1].max - 1) * 100).round %>% vs yesterday
-          <% else %>
-            vs yesterday
-          <% end %>
-        </span>
-      </div>
-      <div class="rn-stat">
-        <span class="rn-stat-label">Unique Classes</span>
-        <span class="rn-stat-value"><%= @stats[:top_classes]&.size || 0 %></span>
-        <span class="rn-stat-change">Exception types</span>
-      </div>
-    </div>
-  <% end %>
-
-  <%# ─── User Impact Ranking ───────────────────────────────── %>
-  <% begin %>
-    <% if RailsNexus.configuration.user_impact_tracking %>
-      <% impact_data = RailsNexus::LoggedException.user_impact_ranking(limit: 5) %>
-      <% if impact_data.any? %>
-        <div class="rn-card">
-          <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
-            <div class="flex items-center gap-2">
-              <svg class="w-4 h-4" style="color: var(--rn-danger)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-              </svg>
-              <h2 class="text-sm font-semibold" style="color: var(--rn-text)">User Impact (Top 5)</h2>
-            </div>
-            <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Errors ranked by unique users affected</p>
-          </div>
-          <div class="rn-table-wrap">
-            <table class="rn-table">
-              <thead>
-                <tr>
-                  <th>Exception</th>
-                  <th>Users Affected</th>
-                  <th>Occurrences</th>
-                  <th>Last Seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                <% impact_data.each do |row| %>
-                  <tr>
-                    <td>
-                      <span class="rn-badge rn-badge-danger"><%= row.exception_class %></span>
-                      <span class="text-xs ml-1" style="color: var(--rn-text-muted)"><%= row.controller_name %>#<%= row.action_name %></span>
-                    </td>
-                    <td>
-                      <span class="font-bold" style="color: var(--rn-danger)"><%= row.unique_users %></span>
-                    </td>
-                    <td>
-                      <span style="color: var(--rn-text-secondary)"><%= row.total_occurrences %></span>
-                    </td>
-                    <td>
-                      <span class="text-xs" style="color: var(--rn-text-muted)"><%= row.last_seen&.strftime("%b %d %H:%M") %></span>
-                    </td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      <% end %>
-    <% end %>
-  <% rescue => e %>
-    <%# Silently ignore if user_id column doesn't exist yet %>
-  <% end %>
-
-  <%# ─── Filters Card ────────────────────────────────────────── %>
-  <div class="rn-card">
-    <%# Filter header with icon %>
-    <div class="rn-filters" style="padding-bottom: 0.5rem">
-      <div class="flex items-center gap-2">
+  <%# ─── Collapsible Filters ─────────────────────────────────── %>
+  <% pills = active_filter_pills %>
+  <section class="rn-card rn-exceptions-panel">
+  <div class="rn-exceptions-main" style="min-height: 400px">
+  <details class="rn-filter-disclosure" open>
+    <summary class="rn-filter-summary">
+      <span class="flex items-center gap-2">
         <svg class="w-4 h-4" style="color: var(--rn-text-muted)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>
-        <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Filters</span>
-        <% if filtered? %>
-          <%= link_to "Clear all", logged_exceptions_path(per_page: params[:per_page]), class: "ml-auto text-xs font-medium", style: "color: var(--rn-primary)" %>
+        <span class="text-sm font-semibold" style="color: var(--rn-text)">Filters</span>
+        <% if pills.any? %>
+          <span class="rn-filter-count"><%= pills.size %> active</span>
+        <% else %>
+          <span class="text-xs" style="color: var(--rn-text-muted)">Search and narrow exceptions</span>
         <% end %>
-      </div>
-    </div>
+      </span>
+      <svg class="rn-filter-chevron w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25L12 15.75 4.5 8.25" /></svg>
+    </summary>
 
     <%# Filter form %>
     <%= search_form_for @q, url: query_logged_exceptions_path, data: { turbo_frame: "exceptions" } do |f| %>
@@ -215,11 +135,13 @@
 
         <div class="flex items-center gap-2">
           <%= f.submit "Apply", class: "rn-btn rn-btn-primary" %>
+          <% if filtered? %>
+            <%= link_to "Clear", logged_exceptions_path(per_page: params[:per_page]), class: "rn-btn rn-btn-ghost" %>
+          <% end %>
         </div>
       </div>
 
       <%# Active filter pills %>
-      <% pills = active_filter_pills %>
       <% if pills.any? %>
         <div class="rn-filter-pills">
           <% pills.each do |pill| %>
@@ -231,11 +153,9 @@
         </div>
       <% end %>
     <% end %>
-  </div>
+  </details>
 
   <%# ─── Content Area ────────────────────────────────────────── %>
-  <div class="flex gap-4" style="min-height: 400px">
-
     <%# ─── Exception List ──────────────────────────────────── %>
     <div class="flex-1 min-w-0">
 
@@ -269,6 +189,8 @@
       <% end %>
     </div>
   </div>
+
+  </section>
 
   <%# ─── Keyboard Shortcuts Dialog ───────────────────────────── %>
   <% if RailsNexus.configuration.keyboard_shortcuts %>

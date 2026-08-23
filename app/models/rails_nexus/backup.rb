@@ -4,7 +4,7 @@ module RailsNexus
   class Backup < BaseRecord
     self.table_name = "rails_nexus_backups"
 
-    validates :model_name, presence: true
+    validates :config_name, presence: true
     validates :status, presence: true, inclusion: { in: %w[running success failed] }
     validates :started_at, presence: true
 
@@ -12,13 +12,13 @@ module RailsNexus
     scope :successful, -> { where(status: "success") }
     scope :failed, -> { where(status: "failed") }
     scope :running, -> { where(status: "running") }
-    scope :by_model, ->(name) { where(model_name: name) }
+    scope :by_config, ->(name) { where(config_name: name) }
     scope :latest_first, -> { order(started_at: :desc) }
 
     # Start tracking a backup run
-    def self.start!(model_name:, triggered_by: "system")
+    def self.start!(config_name:, triggered_by: "system")
       create!(
-        model_name: model_name,
+        config_name: config_name,
         status: "running",
         triggered_by: triggered_by,
         started_at: Time.current
@@ -47,25 +47,25 @@ module RailsNexus
     end
 
     # Get success rate for a model over the last N days
-    def self.success_rate(model_name:, days: 7)
-      records = by_model(model_name).where("started_at >= ?", days.days.ago).where.not(status: "running")
+    def self.success_rate(config_name:, days: 7)
+      records = by_config(config_name).where("started_at >= ?", days.days.ago).where.not(status: "running")
       return 0 if records.empty?
       (records.successful.count.to_f / records.count * 100).round(1)
     end
 
     # Get backup health summary
     def self.health_summary(alert_threshold_hours: 24)
-      models = RailsNexus.configuration.backup_models || []
-      results = models.map do |model_name|
-        latest = by_model(model_name).successful.latest_first.first
+      configs = RailsNexus::BackupConfig.pluck(:name)
+      results = configs.map do |config_name|
+        latest = by_config(config_name).successful.latest_first.first
         age_hours = latest ? ((Time.current - latest.started_at) / 3600).round(1) : nil
 
         {
-          model_name: model_name,
+          config_name: config_name,
           last_backup: latest&.started_at,
           age_hours: age_hours,
           status: age_hours.nil? ? "unknown" : (age_hours < alert_threshold_hours ? "healthy" : "stale"),
-          success_rate: success_rate(model_name: model_name),
+          success_rate: success_rate(config_name: config_name),
           last_file_size: latest&.file_size
         }
       end

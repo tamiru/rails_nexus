@@ -8,31 +8,13 @@
   </nav>
 
   <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup Management</h1>
-    <%= link_to "New Config", new_backup_path, class: "rn-btn rn-btn-primary" %>
-  </div>
-
-  <%# ─── Stats ──────────────────────────────────────────────── %>
-  <div class="rn-stats">
-    <div class="rn-stat">
-      <span class="rn-stat-label">Configs</span>
-      <span class="rn-stat-value"><%= @stats[:total_configs] %></span>
-      <span class="rn-stat-change"><%= @stats[:enabled_configs] %> enabled</span>
+    <div>
+      <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup Configurations</h1>
+      <p class="text-sm mt-1" style="color: var(--rn-text-muted)">Configure storage, schedules, and run backups.</p>
     </div>
-    <div class="rn-stat">
-      <span class="rn-stat-label">Total Backups</span>
-      <span class="rn-stat-value"><%= @stats[:total_backups] %></span>
-      <span class="rn-stat-change">All time</span>
-    </div>
-    <div class="rn-stat">
-      <span class="rn-stat-label">Successful</span>
-      <span class="rn-stat-value" style="color: var(--rn-success)"><%= @stats[:successful] %></span>
-      <span class="rn-stat-change">All time</span>
-    </div>
-    <div class="rn-stat">
-      <span class="rn-stat-label">Failed</span>
-      <span class="rn-stat-value" style="color: var(--rn-danger)"><%= @stats[:failed] %></span>
-      <span class="rn-stat-change">All time</span>
+    <div class="flex items-center gap-2">
+      <%= link_to "Backup History", backup_history_path, class: "rn-btn rn-btn-ghost" %>
+      <%= link_to "New Config", new_backup_path, class: "rn-btn rn-btn-primary" %>
     </div>
   </div>
 
@@ -80,16 +62,23 @@
                   <span class="rn-badge <%= config.enabled? ? 'rn-badge-success' : 'rn-badge-muted' %>">
                     <%= config.enabled? ? 'Enabled' : 'Disabled' %>
                   </span>
-                  <% if config.encrypt? %><span class="rn-badge rn-badge-warning">Encrypted</span><% end %>
+                  <% if config.encrypted? %><span class="rn-badge rn-badge-warning">Encrypted</span><% end %>
                   <% if config.rsync_enabled? %><span class="rn-badge rn-badge-info">RSync</span><% end %>
                 </td>
                 <td style="text-align: right">
                   <div class="flex items-center justify-end gap-1">
-                    <%= button_to "Run", backup_trigger_path(config),
-                      method: :post,
-                      class: "rn-btn rn-btn-primary rn-btn-xs",
-                      data: { turbo_confirm: "Run #{config.name} backup now?" } %>
-                    <%= link_to "History", backup_config_history_path(config), class: "rn-btn rn-btn-ghost rn-btn-xs" %>
+                    <% running = RailsNexus::Backup.where(config_name: config.name, status: "running").exists? %>
+                    <% if running %>
+                      <span class="rn-badge rn-badge-info">
+                        <svg class="animate-spin" style="width:12px;height:12px;display:inline" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                        Running
+                      </span>
+                    <% else %>
+                      <%= button_to "Run", backup_trigger_path(config),
+                        method: :post,
+                        class: "rn-btn rn-btn-primary rn-btn-xs",
+                        data: { turbo_confirm: "Run #{config.name} backup now?" } %>
+                    <% end %>
                     <%= link_to "Edit", edit_backup_path(config), class: "rn-btn rn-btn-ghost rn-btn-xs" %>
                     <%= button_to "Delete", backup_destroy_path(config),
                       method: :delete,
@@ -110,46 +99,14 @@
       </div>
     <% end %>
   </div>
-
-  <%# ─── Recent Backups ─────────────────────────────────────── %>
-  <% if @records.any? %>
-    <div class="rn-card">
-      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Recent Backups</h2>
-          <%= link_to "View All", backup_history_path, class: "text-xs font-medium", style: "color: var(--rn-primary)" %>
-        </div>
-      </div>
-      <div class="rn-table-wrap">
-        <table class="rn-table">
-          <thead>
-            <tr>
-              <th>Config</th>
-              <th>Status</th>
-              <th>Size</th>
-              <th>Duration</th>
-              <th>Triggered By</th>
-              <th>Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @records.each do |record| %>
-              <tr>
-                <td><span class="font-medium" style="color: var(--rn-text)"><%= record.model_name %></span></td>
-                <td>
-                  <span class="rn-badge rn-badge-<%= record.status == 'success' ? 'success' : record.status == 'failed' ? 'danger' : 'warning' %>">
-                    <%= record.status.capitalize %>
-                  </span>
-                </td>
-                <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.file_size ? number_to_human_size(record.file_size) : "—" %></span></td>
-                <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.duration ? "#{record.duration.round(1)}s" : "—" %></span></td>
-                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= record.triggered_by || "—" %></span></td>
-                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= record.started_at ? time_ago_in_words(record.started_at) + " ago" : "—" %></span></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  <% end %>
 </div>
+
+<script>
+// Auto-refresh when a backup is running
+(function() {
+  var running = document.querySelector('.animate-spin');
+  if (running) {
+    setTimeout(function() { location.reload(); }, 5000);
+  }
+})();
+</script>
