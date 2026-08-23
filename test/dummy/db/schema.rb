@@ -114,37 +114,6 @@ ActiveRecord::Schema[8.1].define(version: 2024_03_30_122311) do
     t.index ["url"], name: "index_rails_nexus_webhook_deliveries_on_url"
   end
 
-  create_table "rails_nexus_metrics", force: :cascade do |t|
-    t.string "metric_type", null: false
-    t.float "value", null: false
-    t.string "unit"
-    t.json "metadata"
-    t.datetime "recorded_at", null: false
-
-    t.index ["metric_type", "recorded_at"], name: "index_rails_nexus_metrics_on_metric_type_and_recorded_at"
-    t.index ["recorded_at"], name: "index_rails_nexus_metrics_on_recorded_at"
-  end
-
-  create_table "rails_nexus_database_stats", force: :cascade do |t|
-    t.integer "pool_size"
-    t.integer "busy"
-    t.integer "idle"
-    t.integer "dead"
-    t.integer "waiting"
-    t.float "utilization"
-    t.string "table_name"
-    t.bigint "table_rows"
-    t.string "table_size"
-    t.string "index_size"
-    t.string "data_free"
-    t.json "n1_patterns"
-    t.json "slow_queries"
-    t.datetime "recorded_at", null: false
-
-    t.index ["recorded_at"], name: "index_rails_nexus_database_stats_on_recorded_at"
-    t.index ["table_name"], name: "index_rails_nexus_database_stats_on_table_name"
-  end
-
   create_table "rails_nexus_backups", force: :cascade do |t|
     t.string "model_name", null: false
     t.string "status", null: false
@@ -159,67 +128,5 @@ ActiveRecord::Schema[8.1].define(version: 2024_03_30_122311) do
     t.index ["model_name", "started_at"], name: "index_rails_nexus_backups_on_model_name_and_started_at"
     t.index ["started_at"], name: "index_rails_nexus_backups_on_started_at"
     t.index ["status"], name: "index_rails_nexus_backups_on_status"
-  end
-
-  create_table "rails_nexus_server_metrics", force: :cascade do |t|
-    t.string "hostname"
-    t.string "ruby_version"
-    t.string "rails_version"
-    t.string "os_info"
-    t.float "cpu_usage"
-    t.integer "cpu_cores"
-    t.float "load_avg_1m"
-    t.float "load_avg_5m"
-    t.float "load_avg_15m"
-    t.bigint "memory_total"
-    t.bigint "memory_used"
-    t.bigint "memory_free"
-    t.bigint "swap_total"
-    t.bigint "swap_used"
-    t.bigint "disk_total"
-    t.bigint "disk_used"
-    t.float "disk_usage_percent"
-    t.integer "puma_workers"
-    t.integer "puma_threads"
-    t.integer "sidekiq_workers"
-    t.integer "sidekiq_processed"
-    t.integer "sidekiq_failed"
-    t.integer "sidekiq_enqueued"
-    t.float "uptime_seconds"
-    t.datetime "recorded_at", null: false
-
-    t.index ["recorded_at"], name: "index_rails_nexus_server_metrics_on_recorded_at"
-  end
-
-  create_table "rails_nexus_nginx_metrics", force: :cascade do |t|
-    t.integer "status_code", null: false
-    t.string "request_method"
-    t.string "request_path"
-    t.float "response_time"
-    t.float "upstream_time"
-    t.string "remote_addr"
-    t.string "user_agent"
-    t.string "referer"
-    t.text "request_body"
-    t.json "metadata"
-    t.datetime "recorded_at", null: false
-
-    t.index ["recorded_at"], name: "index_rails_nexus_nginx_metrics_on_recorded_at"
-    t.index ["request_path"], name: "index_rails_nexus_nginx_metrics_on_request_path"
-    t.index ["status_code", "recorded_at"], name: "index_rails_nexus_nginx_metrics_on_status_code_and_recorded_at"
-  end
-
-  create_table "rails_nexus_events", force: :cascade do |t|
-    t.string "event_type", null: false
-    t.string "eventable_type"
-    t.bigint "eventable_id"
-    t.json "metadata"
-    t.string "author"
-    t.text "message"
-    t.datetime "created_at", null: false
-
-    t.index ["created_at"], name: "index_rails_nexus_events_on_created_at"
-    t.index ["event_type"], name: "index_rails_nexus_events_on_event_type"
-    t.index ["eventable_type", "eventable_id"], name: "index_rails_nexus_events_on_eventable_type_and_eventable_id"
   end
 end
