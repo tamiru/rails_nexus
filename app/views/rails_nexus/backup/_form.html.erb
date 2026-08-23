@@ -1,0 +1,185 @@
+<%= form_for @config, url: (@config.persisted? ? backup_path(@config) : backup_index_path), class: "space-y-6" do |f| %>
+  <% if @config.errors.any? %>
+    <div class="rn-card" style="border-left: 3px solid var(--rn-danger)">
+      <div class="p-4">
+        <p class="text-sm font-semibold" style="color: var(--rn-danger)"><%= @config.errors.count %> error(s) prevented this config from being saved:</p>
+        <ul class="mt-2 text-xs" style="color: var(--rn-text-secondary)">
+          <% @config.errors.full_messages.each do |msg| %>
+            <li>• <%= msg %></li>
+          <% end %>
+        </ul>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── General ─────────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">General</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rn-filter-group">
+        <label>Name *</label>
+        <%= f.text_field :name, class: "rn-input", placeholder: "e.g. daily_backup", required: true %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Description</label>
+        <%= f.text_field :description, class: "rn-input", placeholder: "e.g. TTI Daily Backup" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Enabled</label>
+        <%= f.check_box :enabled, class: "rn-input" %>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Database ────────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Database</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="rn-filter-group">
+        <label>Adapter *</label>
+        <%= f.select :adapter, options_for_select([["MySQL", "mysql"], ["PostgreSQL", "postgresql"], ["SQLite", "sqlite"]], @config.adapter), {}, class: "rn-select" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Database Name *</label>
+        <%= f.text_field :database_name, class: "rn-input", placeholder: "e.g. myapp_production" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Host</label>
+        <%= f.text_field :host, class: "rn-input", placeholder: "localhost" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Port</label>
+        <%= f.number_field :port, class: "rn-input", placeholder: "3306" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Username</label>
+        <%= f.text_field :username, class: "rn-input", placeholder: "root" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Password</label>
+        <%= f.password_field :password, class: "rn-input", placeholder: "••••••••" %>
+      </div>
+      <div class="rn-filter-group md:col-span-3">
+        <label>Skip Tables (comma-separated)</label>
+        <%= text_field_tag "backup_config[skip_tables][]", @config.skip_tables_list.join(", "), class: "rn-input", placeholder: "e.g. sessions, versions" %>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Storage ─────────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Storage</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rn-filter-group">
+        <label>Storage Path *</label>
+        <%= f.text_field :storage_path, class: "rn-input", placeholder: "~/dumps" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Keep Count</label>
+        <%= f.number_field :keep_count, class: "rn-input", min: 1 %>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Compression & Encryption ────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Compression & Encryption</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rn-filter-group">
+        <label>Compress (Gzip)</label>
+        <%= f.check_box :compress, class: "rn-input" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Encrypt (OpenSSL AES-256)</label>
+        <%= f.check_box :encrypt, class: "rn-input", data: { action: "change->rails_nexus#toggle" } %>
+      </div>
+      <div class="rn-filter-group" data-rails_nexus-target="encryptPassword" style="<%= 'display:none' unless @config.encrypt? %>">
+        <label>Encryption Password</label>
+        <%= f.password_field :encrypt_password, class: "rn-input", placeholder: "••••••••" %>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Remote Sync ────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Remote Sync (RSync)</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rn-filter-group">
+        <label>Enable RSync</label>
+        <%= f.check_box :rsync_enabled, class: "rn-input" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Host</label>
+        <%= f.text_field :rsync_host, class: "rn-input", placeholder: "192.168.1.100" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Port</label>
+        <%= f.number_field :rsync_port, class: "rn-input", value: @config.rsync_port || 22 %>
+      </div>
+      <div class="rn-filter-group">
+        <label>SSH User</label>
+        <%= f.text_field :rsync_user, class: "rn-input", placeholder: "backup" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Remote Path</label>
+        <%= f.text_field :rsync_path, class: "rn-input", placeholder: "/backups" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Mirror Mode</label>
+        <%= f.check_box :rsync_mirror, class: "rn-input" %>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Notifications ──────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Notifications</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rn-filter-group md:col-span-2">
+        <label>Notify Command</label>
+        <%= f.text_field :notify_command, class: "rn-input", placeholder: "e.g. curl -X POST https://hooks.slack.com/..." %>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Variables: {STATUS}, {MODEL}, {ERROR}, {TIME}</p>
+      </div>
+      <div class="rn-filter-group">
+        <label>Notify on Success</label>
+        <%= f.check_box :notify_on_success, class: "rn-input" %>
+      </div>
+      <div class="rn-filter-group">
+        <label>Notify on Failure</label>
+        <%= f.check_box :notify_on_failure, class: "rn-input" %>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Schedule ────────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Schedule</h2>
+    </div>
+    <div class="p-4">
+      <div class="rn-filter-group" style="max-width: 300px">
+        <label>Cron Expression</label>
+        <%= f.text_field :schedule_cron, class: "rn-input", placeholder: "e.g. 0 2 * * * (daily at 2am)" %>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">min hour day month wday — leave blank for manual only</p>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Submit ──────────────────────────────────────────────── %>
+  <div class="flex items-center gap-3">
+    <%= f.submit @config.persisted? ? "Update Config" : "Create Config", class: "rn-btn rn-btn-primary" %>
+    <%= link_to "Cancel", backup_path, class: "rn-btn rn-btn-ghost" %>
+  </div>
+<% end %>

@@ -228,11 +228,74 @@ namespace :rails_nexus do
     puts "✓ Deleted #{count} webhook delivery records older than #{days} days"
   end
 
+  # ─── Backup Tasks ──────────────────────────────────────────────
+
+  desc "Run a specific backup by name: rails_nexus:backup[daily_backup]"
+  task :backup, [:name] => :environment do |_t, args|
+    name = args[:name]
+    if name.blank?
+      puts "Usage: rake rails_nexus:backup[config_name]"
+      puts "Available configs:"
+      RailsNexus::BackupConfig.enabled.pluck(:name).each { |n| puts "  - #{n}" }
+      next
+    end
+
+    result = RailsNexus::BackupRunner.run(name)
+    if result[:success]
+      puts "✓ Backup "#{name}" completed successfully (#{result[:record].duration_human})"
+    else
+      puts "✗ Backup "#{name}" failed: #{result[:error]}"
+      exit 1
+    end
+  end
+
+  desc "Run all enabled backup configs"
+  task backup_all: :environment do
+    results = RailsNexus::BackupRunner.run_all
+    results.each do |r|
+      if r[:success]
+        puts "✓ #{r[:record].model_name} completed"
+      else
+        puts "✗ #{r[:record]&.model_name || '?'} failed: #{r[:error]}"
+      end
+    end
+  end
+
+  desc "Run backups matching current cron schedule"
+  task backup_scheduled: :environment do
+    results = RailsNexus::BackupRunner.run_scheduled
+    if results.empty?
+      puts "No backups scheduled for this time"
+    else
+      results.each do |r|
+        if r[:success]
+          puts "✓ #{r[:record].model_name} completed"
+        else
+          puts "✗ #{r[:record]&.model_name || '?'} failed: #{r[:error]}"
+        end
+      end
+    end
+  end
+
   desc "Clean up old backup records and files (default: 30 days)"
   task :backup_cleanup, [:days] => :environment do |_t, args|
     days = (args[:days] || 30).to_i
-    service = RailsNexus::BackupService.new
-    result = service.cleanup!(retention_days: days)
-    puts "✓ Deleted #{result[:deleted]} backup records older than #{days} days"
+    count = RailsNexus::Backup.where("started_at < ?", days.days.ago).delete_all
+    puts "✓ Deleted #{count} backup records older than #{days} days"
+  end
+
+  desc "List all backup configs and their status"
+  task backup_list: :environment do
+    configs = RailsNexus::BackupConfig.order(:name)
+    if configs.empty?
+      puts "No backup configs found"
+    else
+      configs.each do |c|
+        status = c.enabled? ? "✓" : "✗"
+        last = c.recent_backups(limit: 1).first
+        last_str = last ? "#{last.status} #{last.started_at&.strftime('%b %d %H:%M')}" : "never"
+        puts "#{status} #{c.name.ljust(20)} #{c.adapter.ljust(12)} #{c.database_name.ljust(20)} last: #{last_str}"
+      end
+    end
   end
 end

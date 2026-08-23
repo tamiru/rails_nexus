@@ -1,176 +1,276 @@
 # frozen_string_literal: true
 
+require "open3"
+require "json"
+
 module RailsNexus
   class BackupService
-    attr_reader :dump_path
-
-    def initialize
-      @dump_path = RailsNexus.configuration.backup_dump_path || default_dump_path
+    # Execute a backup for a given config
+    def self.run(config)
+      new(config).run
     end
 
-    # Run a backup for a model and record it in the table
-    def trigger_backup(model_name)
-      record = RailsNexus::Backup.start!(model_name: model_name, triggered_by: "ui")
+    def initialize(config)
+      @config = config
+      @record = nil
+      @errors = []
+    end
+
+    def run
+      @record = RailsNexus::Backup.start!(
+        model_name: @config.name,
+        triggered_by: "service"
+      )
 
       begin
-        FileUtils.mkdir_p(@dump_path)
+        # Ensure storage directory exists
+        FileUtils.mkdir_p(@config.storage_path_expanded)
 
-        timestamp = Time.current.strftime("%Y%m%d_%H%M%S")
-        filename = "#{model_name}_#{timestamp}.sql"
-        file_path = File.join(@dump_path, filename)
+        # Step 1: Dump database
+        dump_path = dump_database
+        return fail_record("Database dump failed") unless dump_path
 
-        # Detect database adapter and run appropriate dump
-        result = run_dump(model_name, file_path)
+        # Step 2: Compress if configured
+        final_path = @config.compress? ? compress(dump_path) : dump_path
 
-        if result[:success]
-          file_size = File.exist?(file_path) ? File.size(file_path) : 0
-          record.succeed!(file_path: file_path, file_size: file_size)
-          { success: true, record_id: record.id, file_path: file_path }
-        else
-          record.fail!(error_message: result[:error])
-          # Clean up failed file
-          File.delete(file_path) if File.exist?(file_path)
-          { success: false, error: result[:error], record_id: record.id }
-        end
+        # Step 3: Encrypt if configured
+        final_path = encrypt(final_path) if @config.encrypt?
+
+        # Step 4: Sync to remote if configured
+        rsync_result = sync_remote(final_path) if @config.rsync_enabled?
+
+        # Step 5: Cleanup old backups
+        cleanup_old_backups
+
+        # Step 6: Record success
+        file_size = File.exist?(final_path) ? File.size(final_path) : 0
+        @record.succeed!(
+          file_path: final_path,
+          file_size: file_size
+        )
+
+        # Step 7: Notify
+        notify_success
+
+        { success: true, record: @record, file_path: final_path }
       rescue StandardError => e
-        record.fail!(error_message: e.message)
-        { success: false, error: e.message, record_id: record.id }
+        @record.fail!(error_message: e.message) if @record
+        notify_failure(e.message)
+        { success: false, error: e.message, record: @record }
+      ensure
+        # Clean up temp files
+        cleanup_temp_files
       end
-    end
-
-    # Get backup records from the table
-    def backup_records(limit: 50)
-      RailsNexus::Backup.order(started_at: :desc).limit(limit)
-    end
-
-    # Get summary stats from the table
-    def summary
-      recent = RailsNexus::Backup.where("started_at >= ?", 7.days.ago)
-      {
-        total: RailsNexus::Backup.count,
-        successful: RailsNexus::Backup.successful.count,
-        failed: RailsNexus::Backup.failed.count,
-        recent_count: recent.count,
-        recent_success: recent.successful.count,
-        recent_failed: recent.failed.count,
-        total_size: RailsNexus::Backup.sum(:file_size).to_i,
-        total_size_human: human_size(RailsNexus::Backup.sum(:file_size).to_i),
-        last_backup: RailsNexus::Backup.successful.latest_first.first
-      }
-    end
-
-    # Get health status based on table records
-    def health_status
-      last = RailsNexus::Backup.successful.latest_first.first
-      threshold = RailsNexus.configuration.backup_alert_threshold_hours || 24
-
-      if last.nil?
-        { status: "warning", message: "No backups recorded yet" }
-      elsif last.duration && last.duration > threshold * 3600
-        { status: "critical", message: "Last backup #{((Time.current - last.started_at) / 3600).round(1)}h ago" }
-      else
-        { status: "healthy", message: "Last backup #{last.model_name} — #{last.duration_human}" }
-      end
-    end
-
-    # Cleanup old backup records and files
-    def cleanup!(retention_days: nil)
-      days = retention_days || RailsNexus.configuration.backup_alert_threshold_hours&.div(24) || 30
-      old_records = RailsNexus::Backup.where("started_at < ?", days.days.ago)
-
-      # Delete files first
-      old_records.find_each do |record|
-        File.delete(record.file_path) if record.file_path && File.exist?(record.file_path)
-      end
-
-      count = old_records.delete_all
-      { deleted: count }
     end
 
     private
 
-    def default_dump_path
-      Rails.root.join("storage", "rails_nexus", "backups").to_s
-    end
-
-    # Detect adapter and run appropriate dump command
-    def run_dump(model_name, file_path)
-      config = ActiveRecord::Base.connection_db_config.configuration_hash
-      adapter = config[:adapter]
-
-      case adapter
-      when /sqlite/
-        run_sqlite_dump(config, file_path)
-      when /mysql/
-        run_mysql_dump(config, file_path)
-      when /postgresql/, /postgres/
-        run_postgresql_dump(config, file_path)
+    def dump_database
+      case @config.adapter
+      when "mysql"
+        dump_mysql
+      when "postgresql"
+        dump_postgresql
+      when "sqlite"
+        dump_sqlite
       else
-        { success: false, error: "Unsupported adapter: #{adapter}" }
+        raise "Unsupported adapter: #{@config.adapter}"
       end
     end
 
-    def run_sqlite_dump(config, file_path)
-      db_path = config[:database]
-      return { success: false, error: "No database path configured" } unless db_path
+    # ─── MySQL Dump ──────────────────────────────────────────────────
+    def dump_mysql
+      raw_path = @config.dump_filepath.gsub(/\.gz$/, "")
+      cmd = build_mysql_command(raw_path)
 
-      # SQLite: .dump produces SQL output
-      output = `sqlite3 "#{db_path}" .dump 2>&1`
-      if $?.success?
-        File.write(file_path, output)
-        { success: true }
-      else
-        { success: false, error: "sqlite3 dump failed: #{output}" }
+      stdout, stderr, status = Open3.capture3(cmd)
+      unless status.success?
+        @errors << "mysqldump failed: #{stderr}"
+        return nil
       end
+
+      raw_path
     end
 
-    def run_mysql_dump(config, file_path)
+    def build_mysql_command(output_path)
+      parts = ["mysqldump"]
+      parts << "--user=#{@config.username}" if @config.username.present?
+      parts << "--password=#{@config.password}" if @config.password.present?
+      parts << "--host=#{@config.host}" if @config.host.present?
+      parts << "--port=#{@config.port}" if @config.port.present?
+      parts << "--result-file=#{output_path}"
+      parts << "--quick"
+      parts << "--single-transaction" if @config.mysql?
+
+      # Skip tables
+      skip = @config.skip_tables_list
+      skip.each { |t| parts << "--ignore-table=#{@config.database_name}.#{t}" }
+
+      parts << @config.database_name
+      parts.join(" ")
+    end
+
+    # ─── PostgreSQL Dump ─────────────────────────────────────────────
+    def dump_postgresql
+      raw_path = @config.dump_filepath.gsub(/\.gz$/, "")
+      cmd = build_postgresql_command(raw_path)
+
+      env = {}
+      env["PGPASSWORD"] = @config.password if @config.password.present?
+
+      stdout, stderr, status = Open3.capture3(env, cmd)
+      unless status.success?
+        @errors << "pg_dump failed: #{stderr}"
+        return nil
+      end
+
+      raw_path
+    end
+
+    def build_postgresql_command(output_path)
+      parts = ["pg_dump"]
+      parts << "--username=#{@config.username}" if @config.username.present?
+      parts << "--host=#{@config.host}" if @config.host.present?
+      parts << "--port=#{@config.port}" if @config.port.present?
+      parts << "--file=#{output_path}"
+      parts << "--format=plain"
+
+      # Skip tables
+      skip = @config.skip_tables_list
+      skip.each { |t| parts << "--exclude-table=#{t}" }
+
+      parts << @config.database_name
+      parts.join(" ")
+    end
+
+    # ─── SQLite Dump ─────────────────────────────────────────────────
+    def dump_sqlite
+      raw_path = @config.dump_filepath.gsub(/\.gz$/, "")
+      db_path = @config.database_name
+
+      unless File.exist?(db_path)
+        @errors << "SQLite database not found: #{db_path}"
+        return nil
+      end
+
+      stdout, stderr, status = Open3.capture3("sqlite3 #{db_path} .dump")
+      unless status.success?
+        @errors << "sqlite3 dump failed: #{stderr}"
+        return nil
+      end
+
+      File.write(raw_path, stdout)
+      raw_path
+    end
+
+    # ─── Compression ─────────────────────────────────────────────────
+    def compress(file_path)
+      gz_path = "#{file_path}.gz"
+      File.open(file_path, "rb") do |input|
+        Zlib::GzipWriter.open(gz_path) do |gz|
+          gz.write(input.read)
+        end
+      end
+      File.delete(file_path) if File.exist?(gz_path)
+      gz_path
+    end
+
+    # ─── Encryption ──────────────────────────────────────────────────
+    def encrypt(file_path)
+      enc_path = "#{file_path}.enc"
+      password = @config.encrypt_password
+
+      cmd = "openssl aes-256-cbc -salt -pbkdf2 -in #{file_path} -out #{enc_path} -pass pass:#{password}"
+      stdout, stderr, status = Open3.capture3(cmd)
+
+      unless status.success?
+        @errors << "Encryption failed: #{stderr}"
+        return file_path
+      end
+
+      File.delete(file_path) if File.exist?(enc_path)
+      enc_path
+    end
+
+    # ─── RSync Remote Sync ──────────────────────────────────────────
+    def sync_remote(file_path)
+      return unless @config.rsync_enabled?
+      return unless @config.rsync_host.present?
+
+      remote = "#{@config.rsync_user}@#{@config.rsync_host}:#{@config.rsync_path}/"
+
       cmd = [
-        "mysqldump",
-        "--user=#{config[:username] || 'root'}",
-        config[:password] ? "--password=#{config[:password]}" : nil,
-        "--host=#{config[:host] || 'localhost'}",
-        "--port=#{config[:port] || 3306}",
-        "--result-file=#{file_path}",
-        config[:database]
-      ].compact.join(" ")
+        "rsync",
+        "-avz",
+        "--progress",
+        "-e", "ssh -p #{@config.rsync_port}",
+        file_path,
+        remote
+      ].join(" ")
 
-      output = `#{cmd} 2>&1`
-      if $?.success?
-        { success: true }
-      else
-        { success: false, error: "mysqldump failed: #{output}" }
+      stdout, stderr, status = Open3.capture3(cmd)
+      unless status.success?
+        @errors << "RSync failed: #{stderr}"
+      end
+
+      { success: status.success?, output: stdout }
+    end
+
+    # ─── Cleanup ─────────────────────────────────────────────────────
+    def cleanup_old_backups
+      storage = @config.storage_path_expanded
+      return unless Dir.exist?(storage)
+
+      pattern = File.join(storage, "#{@config.name}_*")
+      files = Dir.glob(pattern).sort_by { |f| File.mtime(f) }
+
+      # Keep only keep_count most recent
+      while files.size > @config.keep_count
+        old_file = files.shift
+        File.delete(old_file) if File.exist?(old_file)
       end
     end
 
-    def run_postgresql_dump(config, file_path)
-      cmd = [
-        "pg_dump",
-        "--username=#{config[:username] || 'postgres'}",
-        config[:host] ? "--host=#{config[:host]}" : nil,
-        config[:port] ? "--port=#{config[:port]}" : nil,
-        "--file=#{file_path}",
-        config[:database]
-      ].compact.join(" ")
+    def cleanup_temp_files
+      # Clean up any intermediate files (uncompressed, unencrypted)
+      storage = @config.storage_path_expanded
+      return unless Dir.exist?(storage)
 
-      env = config[:password] ? { "PGPASSWORD" => config[:password].to_s } : {}
-
-      output = IO.capture2e(env, cmd)
-      if output.last.success?
-        { success: true }
-      else
-        { success: false, error: "pg_dump failed: #{output.first}" }
+      Dir.glob(File.join(storage, "#{@config.name}_*.sql")).each do |f|
+        File.delete(f) if File.exist?("#{f}.gz") || File.exist?("#{f}.enc")
       end
     end
 
-    def human_size(bytes)
-      return "0 B" if bytes.zero?
+    # ─── Notifications ───────────────────────────────────────────────
+    def notify_success
+      return unless @config.notify_on_success?
+      execute_notify_command("success")
+    end
 
-      units = %w[B KB MB GB TB]
-      exp = (Math.log(bytes) / Math.log(1024)).to_i
-      exp = units.size - 1 if exp >= units.size
+    def notify_failure(error_message)
+      return unless @config.notify_on_failure?
+      execute_notify_command("failure", error_message)
+    end
 
-      "%.1f %s" % [bytes.to_f / (1024**exp), units[exp]]
+    def execute_notify_command(status, error = nil)
+      return if @config.notify_command.blank?
+
+      cmd = @config.notify_command
+        .gsub("{STATUS}", status.to_s)
+        .gsub("{MODEL}", @config.name)
+        .gsub("{ERROR}", error.to_s)
+        .gsub("{TIME}", Time.current.iso8601)
+
+      Open3.capture3(cmd)
+    rescue StandardError
+      # Don't fail backup because notification failed
+    end
+
+    # ─── Fail Record ─────────────────────────────────────────────────
+    def fail_record(message)
+      @record.fail!(error_message: message) if @record
+      notify_failure(message)
+      { success: false, error: message, record: @record }
     end
   end
 end

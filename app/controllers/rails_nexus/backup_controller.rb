@@ -4,50 +4,104 @@ module RailsNexus
   class BackupController < ApplicationController
     before_action :rails_nexus_require_auth!
     before_action :check_backup_enabled
+    before_action :set_config, only: %i[edit update destroy trigger]
 
     # GET /rails_nexus/backup
     def index
-      @service = BackupService.new
-      @health = @service.health_status
-      @summary = @service.summary
-      @records = @service.backup_records
+      @configs = RailsNexus::BackupConfig.order(:name)
+      @records = RailsNexus::Backup.order(started_at: :desc).limit(20)
+      @stats = {
+        total_configs: RailsNexus::BackupConfig.count,
+        enabled_configs: RailsNexus::BackupConfig.enabled.count,
+        total_backups: RailsNexus::Backup.count,
+        successful: RailsNexus::Backup.successful.count,
+        failed: RailsNexus::Backup.failed.count
+      }
     end
 
-    # GET /rails_nexus/backup/files
-    def files
-      @service = BackupService.new
-      @records = @service.backup_records(limit: 100)
+    # GET /rails_nexus/backup/new
+    def new
+      @config = RailsNexus::BackupConfig.new(
+        adapter: "mysql",
+        host: "localhost",
+        port: 3306,
+        storage_path: "~/dumps",
+        keep_count: 30,
+        compress: true
+      )
     end
 
-    # POST /rails_nexus/backup/trigger/:model
-    def trigger
-      @service = BackupService.new
-      result = @service.trigger_backup(params[:model])
+    # POST /rails_nexus/backup
+    def create
+      @config = RailsNexus::BackupConfig.new(config_params)
 
-      if result[:success]
-        redirect_to backup_path, notice: "Backup '#{params[:model]}' completed successfully."
+      if @config.save
+        redirect_to backup_path, notice: "Backup config '#{@config.name}' created."
       else
-        redirect_to backup_path, alert: "Backup failed: #{result[:error]}"
+        render :new, status: :unprocessable_entity
+      end
+    end
+
+    # GET /rails_nexus/backup/:id/edit
+    def edit; end
+
+    # PATCH /rails_nexus/backup/:id
+    def update
+      if @config.update(config_params)
+        redirect_to backup_path, notice: "Backup config '#{@config.name}' updated."
+      else
+        render :edit, status: :unprocessable_entity
       end
     end
 
     # DELETE /rails_nexus/backup/:id
     def destroy
-      record = RailsNexus::Backup.find(params[:id])
-      # Delete the file if it exists
-      File.delete(record.file_path) if record.file_path && File.exist?(record.file_path)
-      record.destroy
-      redirect_to backup_path, notice: "Backup record deleted."
+      name = @config.name
+      @config.destroy
+      redirect_to backup_path, notice: "Backup config '#{name}' deleted."
     end
 
-    # GET /rails_nexus/backup/health
-    def health
-      @service = BackupService.new
-      @health = @service.health_status
-      @summary = @service.summary
+    # POST /rails_nexus/backup/:id/trigger
+    def trigger
+      result = RailsNexus::BackupService.run(@config)
+
+      if result[:success]
+        redirect_to backup_path, notice: "Backup '#{@config.name}' completed successfully."
+      else
+        redirect_to backup_path, alert: "Backup failed: #{result[:error]}"
+      end
+    end
+
+    # GET /rails_nexus/backup/:id/history
+    def history
+      @config = RailsNexus::BackupConfig.find(params[:id])
+      @records = RailsNexus::Backup.where(model_name: @config.name)
+        .order(started_at: :desc)
+        .limit(50)
+    end
+
+    # GET /rails_nexus/backup/history
+    def all_history
+      @records = RailsNexus::Backup.order(started_at: :desc).limit(100)
     end
 
     private
+
+    def set_config
+      @config = RailsNexus::BackupConfig.find(params[:id])
+    end
+
+    def config_params
+      params.require(:backup_config).permit(
+        :name, :description, :database_name, :adapter, :host, :port,
+        :username, :password, :storage_path, :keep_count,
+        :compress, :encrypt, :encrypt_password,
+        :rsync_enabled, :rsync_host, :rsync_port, :rsync_user, :rsync_path, :rsync_mirror,
+        :notify_command, :notify_on_success, :notify_on_failure,
+        :schedule_cron, :enabled,
+        skip_tables: []
+      )
+    end
 
     def check_backup_enabled
       unless RailsNexus.configuration.backup_enabled
