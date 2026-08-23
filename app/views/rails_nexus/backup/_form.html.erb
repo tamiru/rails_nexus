@@ -1,11 +1,11 @@
-<%= form_for @config, url: (@config.persisted? ? backup_path(@config) : backup_index_path), class: "space-y-6" do |f| %>
+<%= form_for @config, url: (@config.persisted? ? backup_path(@config) : backup_path), class: "space-y-6" do |f| %>
   <% if @config.errors.any? %>
     <div class="rn-card" style="border-left: 3px solid var(--rn-danger)">
       <div class="p-4">
         <p class="text-sm font-semibold" style="color: var(--rn-danger)"><%= @config.errors.count %> error(s) prevented this config from being saved:</p>
         <ul class="mt-2 text-xs" style="color: var(--rn-text-secondary)">
           <% @config.errors.full_messages.each do |msg| %>
-            <li>• <%= msg %></li>
+            <li>&bull; <%= msg %></li>
           <% end %>
         </ul>
       </div>
@@ -27,8 +27,10 @@
         <%= f.text_field :description, class: "rn-input", placeholder: "e.g. TTI Daily Backup" %>
       </div>
       <div class="rn-filter-group">
-        <label>Enabled</label>
-        <%= f.check_box :enabled, class: "rn-input" %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :enabled %>
+          Enabled
+        </label>
       </div>
     </div>
   </div>
@@ -41,7 +43,13 @@
     <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="rn-filter-group">
         <label>Adapter *</label>
-        <%= f.select :adapter, options_for_select([["MySQL", "mysql"], ["PostgreSQL", "postgresql"], ["SQLite", "sqlite"]], @config.adapter), {}, class: "rn-select" %>
+        <%= f.select :adapter, options_for_select([
+          ["MySQL", "mysql"],
+          ["PostgreSQL", "postgresql"],
+          ["SQLite", "sqlite"],
+          ["MongoDB", "mongodb"],
+          ["Redis", "redis"]
+        ], @config.adapter), {}, class: "rn-select" %>
       </div>
       <div class="rn-filter-group">
         <label>Database Name *</label>
@@ -61,11 +69,11 @@
       </div>
       <div class="rn-filter-group">
         <label>Password</label>
-        <%= f.password_field :password, class: "rn-input", placeholder: "••••••••" %>
+        <%= f.password_field :password, class: "rn-input", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" %>
       </div>
       <div class="rn-filter-group md:col-span-3">
         <label>Skip Tables (comma-separated)</label>
-        <%= text_field_tag "backup_config[skip_tables][]", @config.skip_tables_list.join(", "), class: "rn-input", placeholder: "e.g. sessions, versions" %>
+        <%= f.text_field :skip_tables, value: @config.skip_tables_list.join(", "), class: "rn-input", placeholder: "e.g. sessions, versions, internal_logs" %>
       </div>
     </div>
   </div>
@@ -87,6 +95,30 @@
     </div>
   </div>
 
+  <%# ─── Archives ────────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Archives (File/Directory Backup)</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rn-filter-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :archive_enabled %>
+          Enable Archives
+        </label>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Include additional files/directories in the backup tar</p>
+      </div>
+      <div class="rn-filter-group md:col-span-2" id="archive-paths-group">
+        <label>Archive Paths (comma-separated)</label>
+        <%= f.text_field :archive_paths, value: @config.archive_paths_list.join(", "), class: "rn-input", placeholder: "e.g. /var/log, /etc/nginx, /home/app/uploads" %>
+      </div>
+      <div class="rn-filter-group md:col-span-2" id="archive-excludes-group">
+        <label>Exclude Patterns</label>
+        <%= f.text_field :archive_excludes, value: @config.archive_excludes_list.join(", "), class: "rn-input", placeholder: "e.g. *.log, tmp/*, node_modules" %>
+      </div>
+    </div>
+  </div>
+
   <%# ─── Compression & Encryption ────────────────────────────── %>
   <div class="rn-card">
     <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
@@ -94,49 +126,125 @@
     </div>
     <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="rn-filter-group">
-        <label>Compress (Gzip)</label>
-        <%= f.check_box :compress, class: "rn-input" %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :compress %>
+          Gzip Compression
+        </label>
       </div>
       <div class="rn-filter-group">
-        <label>Encrypt (OpenSSL AES-256)</label>
-        <%= f.check_box :encrypt, class: "rn-input", data: { action: "change->rails_nexus#toggle" } %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :bzip2_compress %>
+          Bzip2 Compression
+        </label>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Better ratio but slower than Gzip</p>
       </div>
-      <div class="rn-filter-group" data-rails_nexus-target="encryptPassword" style="<%= 'display:none' unless @config.encrypt? %>">
+      <div class="rn-filter-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :encrypted %>
+          OpenSSL AES-256 Encryption
+        </label>
+      </div>
+      <div class="rn-filter-group" id="encrypt-password-group" style="<%= 'display:none' unless @config.encrypted? %>">
         <label>Encryption Password</label>
-        <%= f.password_field :encrypt_password, class: "rn-input", placeholder: "••••••••" %>
+        <%= f.password_field :encryption_password, class: "rn-input", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" %>
+      </div>
+      <div class="rn-filter-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :gpg_enabled %>
+          GPG Encryption
+        </label>
+      </div>
+      <div class="rn-filter-group" id="gpg-password-group" style="<%= 'display:none' unless @config.gpg_enabled? %>">
+        <label>GPG Password</label>
+        <%= f.password_field :gpg_password, class: "rn-input", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" %>
+      </div>
+      <div class="rn-filter-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :split_chunks %>
+          Split into Chunks (50MB)
+        </label>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Split large backups into 50MB files</p>
       </div>
     </div>
   </div>
 
-  <%# ─── Remote Sync ────────────────────────────────────────── %>
+  <%# ─── Remote Sync (RSync) ────────────────────────────────── %>
   <div class="rn-card">
     <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
       <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Remote Sync (RSync)</h2>
     </div>
     <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="rn-filter-group">
-        <label>Enable RSync</label>
-        <%= f.check_box :rsync_enabled, class: "rn-input" %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :rsync_enabled %>
+          Enable RSync
+        </label>
       </div>
-      <div class="rn-filter-group">
-        <label>Host</label>
-        <%= f.text_field :rsync_host, class: "rn-input", placeholder: "192.168.1.100" %>
+      <div class="rn-filter-group" id="rsync-fields" style="<%= 'display:none' unless @config.rsync_enabled? %>">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label>Host</label>
+            <%= f.text_field :rsync_host, class: "rn-input", placeholder: "192.168.1.100" %>
+          </div>
+          <div>
+            <label>Port</label>
+            <%= f.number_field :rsync_port, class: "rn-input", value: @config.rsync_port || 22 %>
+          </div>
+          <div>
+            <label>SSH User</label>
+            <%= f.text_field :rsync_user, class: "rn-input", placeholder: "backup" %>
+          </div>
+          <div>
+            <label>Remote Path</label>
+            <%= f.text_field :rsync_path, class: "rn-input", placeholder: "/backups" %>
+          </div>
+          <div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <%= f.check_box :rsync_mirror %>
+              Mirror Mode
+            </label>
+          </div>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <%# ─── S3 Storage ──────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">S3 Storage</h2>
+    </div>
+    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="rn-filter-group">
-        <label>Port</label>
-        <%= f.number_field :rsync_port, class: "rn-input", value: @config.rsync_port || 22 %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :s3_enabled %>
+          Enable S3 Upload
+        </label>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Requires aws-cli or s3cmd installed</p>
       </div>
-      <div class="rn-filter-group">
-        <label>SSH User</label>
-        <%= f.text_field :rsync_user, class: "rn-input", placeholder: "backup" %>
-      </div>
-      <div class="rn-filter-group">
-        <label>Remote Path</label>
-        <%= f.text_field :rsync_path, class: "rn-input", placeholder: "/backups" %>
-      </div>
-      <div class="rn-filter-group">
-        <label>Mirror Mode</label>
-        <%= f.check_box :rsync_mirror, class: "rn-input" %>
+      <div class="rn-filter-group md:col-span-2" id="s3-fields" style="<%= 'display:none' unless @config.s3_enabled? %>">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label>Access Key *</label>
+            <%= f.text_field :s3_access_key, class: "rn-input", placeholder: "AKIA..." %>
+          </div>
+          <div>
+            <label>Secret Key *</label>
+            <%= f.password_field :s3_secret_key, class: "rn-input", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" %>
+          </div>
+          <div>
+            <label>Bucket *</label>
+            <%= f.text_field :s3_bucket, class: "rn-input", placeholder: "my-backups-bucket" %>
+          </div>
+          <div>
+            <label>Region</label>
+            <%= f.text_field :s3_region, class: "rn-input", placeholder: "us-east-1", value: @config.s3_region || "us-east-1" %>
+          </div>
+          <div>
+            <label>Key Prefix</label>
+            <%= f.text_field :s3_prefix, class: "rn-input", placeholder: "backups/production" %>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -148,17 +256,31 @@
     </div>
     <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="rn-filter-group md:col-span-2">
-        <label>Notify Command</label>
+        <label>Notify Command (Webhook / Script)</label>
         <%= f.text_field :notify_command, class: "rn-input", placeholder: "e.g. curl -X POST https://hooks.slack.com/..." %>
         <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Variables: {STATUS}, {MODEL}, {ERROR}, {TIME}</p>
       </div>
       <div class="rn-filter-group">
-        <label>Notify on Success</label>
-        <%= f.check_box :notify_on_success, class: "rn-input" %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :notify_on_success %>
+          Notify on Success
+        </label>
       </div>
       <div class="rn-filter-group">
-        <label>Notify on Failure</label>
-        <%= f.check_box :notify_on_failure, class: "rn-input" %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :notify_on_failure %>
+          Notify on Failure
+        </label>
+      </div>
+      <div class="rn-filter-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <%= f.check_box :email_notify %>
+          Email Notifications
+        </label>
+      </div>
+      <div class="rn-filter-group" id="email-to-group" style="<%= 'display:none' unless @config.email_notify? %>">
+        <label>Email To</label>
+        <%= f.text_field :email_to, class: "rn-input", placeholder: "admin@example.com" %>
       </div>
     </div>
   </div>
@@ -172,7 +294,7 @@
       <div class="rn-filter-group" style="max-width: 300px">
         <label>Cron Expression</label>
         <%= f.text_field :schedule_cron, class: "rn-input", placeholder: "e.g. 0 2 * * * (daily at 2am)" %>
-        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">min hour day month wday — leave blank for manual only</p>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">min hour day month wday &mdash; leave blank for manual only</p>
       </div>
     </div>
   </div>
@@ -183,3 +305,27 @@
     <%= link_to "Cancel", backup_path, class: "rn-btn rn-btn-ghost" %>
   </div>
 <% end %>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Toggle visibility for dependent sections based on checkboxes
+  function setupToggle(checkboxId, targetId) {
+    var cb = document.getElementById(checkboxId);
+    var target = document.getElementById(targetId);
+    if (!cb || !target) return;
+    cb.addEventListener("change", function() {
+      target.style.display = cb.checked ? "" : "none";
+    });
+    // Set initial state
+    target.style.display = cb.checked ? "" : "none";
+  }
+
+  setupToggle("backup_config_encrypted", "encrypt-password-group");
+  setupToggle("backup_config_gpg_enabled", "gpg-password-group");
+  setupToggle("backup_config_rsync_enabled", "rsync-fields");
+  setupToggle("backup_config_s3_enabled", "s3-fields");
+  setupToggle("backup_config_email_notify", "email-to-group");
+  setupToggle("backup_config_archive_enabled", "archive-paths-group");
+  setupToggle("backup_config_archive_enabled", "archive-excludes-group");
+});
+</script>

@@ -40,6 +40,19 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
     assert_select "select[name='q[priority_eq]']", count: 1
   end
 
+  test "index renders the responsive application shell" do
+    get "/rails_nexus/logged_exceptions"
+
+    assert_select "body[data-controller~='rails_nexus-sidebar']"
+    assert_select "button[data-action='click->rails_nexus-sidebar#toggle'][aria-label='Open navigation']"
+    assert_select "button#rn-shortcuts-button[data-action='click->rails_nexus-sidebar#toggleShortcuts'][aria-haspopup='dialog']"
+    assert_select ".rn-shortcuts-overlay[role='dialog'][aria-labelledby='rn-shortcuts-title']"
+    assert_select ".rn-sidebar .rn-nav-section-label", text: "Monitor"
+    assert_select ".rn-mobile-sidebar nav[aria-label='RailsNexus navigation']"
+    assert_select ".rn-footer a[href='https://github.com/tamiru']", text: "Tamiru Hailu"
+    assert_select ".rn-footer a[href='https://github.com/tamiru/rails_nexus']", text: /GitHub/
+  end
+
   test "index paginates with pagy" do
     25.times do |index|
       RailsNexus::LoggedException.create!(

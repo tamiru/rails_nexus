@@ -5,7 +5,7 @@
 # This file is Rails 8.1's schema definition format. It's strongly recommended that
 # you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2024_03_30_122311) do
+ActiveRecord::Schema[8.1].define(version: 2024_03_30_122312) do
   create_table "rails_nexus_exceptions", force: :cascade do |t|
     # Core exception data
     t.string "exception_class"
@@ -128,5 +128,61 @@ ActiveRecord::Schema[8.1].define(version: 2024_03_30_122311) do
     t.index ["model_name", "started_at"], name: "index_rails_nexus_backups_on_model_name_and_started_at"
     t.index ["started_at"], name: "index_rails_nexus_backups_on_started_at"
     t.index ["status"], name: "index_rails_nexus_backups_on_status"
+  end
+
+  create_table "rails_nexus_backup_configs", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "description"
+    t.string "database_name", null: false
+    t.string "adapter", null: false, default: "mysql"
+    t.string "host", default: "localhost"
+    t.integer "port"
+    t.string "username"
+    t.string "password"
+    t.string "skip_tables"
+
+    t.string "storage_path", null: false
+    t.integer "keep_count", default: 30
+
+    t.boolean "compress", default: true
+    t.boolean "bzip2_compress", default: false
+    t.boolean "encrypted", default: false
+    t.string "encryption_password"
+    t.boolean "gpg_enabled", default: false
+    t.string "gpg_password"
+
+    t.boolean "rsync_enabled", default: false
+    t.string "rsync_host"
+    t.integer "rsync_port", default: 22
+    t.string "rsync_user"
+    t.string "rsync_path"
+    t.boolean "rsync_mirror", default: false
+
+    t.boolean "s3_enabled", default: false
+    t.string "s3_access_key"
+    t.string "s3_secret_key"
+    t.string "s3_bucket"
+    t.string "s3_region", default: "us-east-1"
+    t.string "s3_prefix"
+
+    t.boolean "archive_enabled", default: false
+    t.string "archive_paths"
+    t.string "archive_excludes"
+    t.boolean "split_chunks", default: false
+
+    t.string "notify_command"
+    t.boolean "notify_on_success", default: true
+    t.boolean "notify_on_failure", default: true
+    t.boolean "email_notify", default: false
+    t.string "email_to"
+
+    t.string "schedule_cron"
+    t.boolean "enabled", default: true
+
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+
+    t.index ["name"], name: "index_rails_nexus_backup_configs_on_name", unique: true
+    t.index ["enabled"], name: "index_rails_nexus_backup_configs_on_enabled"
   end
 end

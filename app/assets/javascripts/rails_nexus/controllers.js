@@ -54,6 +54,20 @@
       if (this.hasDrawerTarget) this.drawerTarget.classList.remove("open")
       if (this.hasOverlayTarget) this.overlayTarget.classList.remove("open")
     }
+
+    toggleShortcuts(event) {
+      var dialog = document.querySelector("[data-rails_nexus-target='shortcutsDialog']")
+      if (!dialog) return
+
+      var isOpening = !dialog.classList.contains("open")
+      dialog.classList.toggle("open", isOpening)
+      event.currentTarget.setAttribute("aria-expanded", isOpening.toString())
+
+      if (isOpening) {
+        var closeButton = dialog.querySelector("button")
+        if (closeButton) closeButton.focus()
+      }
+    }
   }
 
 
@@ -277,11 +291,17 @@
         this.closeShortcuts()
       } else {
         this.shortcutsDialogTarget.classList.add("open")
+        var button = document.getElementById("rn-shortcuts-button")
+        if (button) button.setAttribute("aria-expanded", "true")
       }
     }
 
     closeShortcuts() {
-      if (this.hasShortcutsDialogTarget) this.shortcutsDialogTarget.classList.remove("open")
+      if (this.hasShortcutsDialogTarget) {
+        this.shortcutsDialogTarget.classList.remove("open")
+        var button = document.getElementById("rn-shortcuts-button")
+        if (button) button.setAttribute("aria-expanded", "false")
+      }
     }
 
     // ─── Navigation (prev/next) ───────────────────────────────
