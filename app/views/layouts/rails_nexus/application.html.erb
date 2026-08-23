@@ -82,6 +82,14 @@
         <%# ─── Tools section ──────────────────────────────────────── %>
         <div class="rn-sidebar-section-divider"></div>
 
+        <% if main_app.respond_to?(:root_path) %>
+          <%= link_to main_app.root_path,
+            class: "rn-nav-item rn-nav-item--muted" do %>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+            Admin Panel
+          <% end %>
+        <% end %>
+
         <%= link_to feed_logged_exceptions_path(format: :rss),
           class: "rn-nav-item rn-nav-item--muted" do %>
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 19.5v-.75a7.5 7.5 0 00-7.5-7.5H4.5m0-6.75h.75c7.87 0 14.25 6.38 14.25 14.25v.75M6 18.75a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
