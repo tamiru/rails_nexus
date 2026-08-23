@@ -116,13 +116,19 @@ module RailsNexus
       }
     end
 
-    # Run a backup model
+    # Run a backup model and record it in the table
     def trigger_backup(model_name)
       return { success: false, error: "Backup not configured" } unless configured?
       return { success: false, error: "Invalid model: #{model_name}" } unless valid_model?(model_name)
 
+      # Record the backup attempt in the table
+      record = RailsNexus::Backup.start!(model_name: model_name, triggered_by: "ui")
+
       runner = find_runner_script
-      return { success: false, error: "Runner script not found" } unless runner
+      unless runner
+        record.fail!(error_message: "Runner script not found")
+        return { success: false, error: "Runner script not found" }
+      end
 
       log_file = File.join(File.dirname(@config_path), "log", "cron.log")
       error_log = File.join(File.dirname(@config_path), "log", "cron-error.log")
@@ -131,7 +137,43 @@ module RailsNexus
       pid = Process.spawn(command)
       Process.detach(pid)
 
-      { success: true, pid: pid, model: model_name }
+      { success: true, pid: pid, model: model_name, record_id: record.id }
+    end
+
+    # Scan backup filesystem and create/update table records
+    # Called periodically or manually to keep the table in sync
+    def scan_and_record!
+      files = backup_files
+      created = 0
+      files.each do |file|
+        # Skip if we already have a record for this exact file path + model
+        model_name = guess_model_from_filename(file[:name])
+        next unless model_name
+
+        existing = RailsNexus::Backup.where(
+          model_name: model_name,
+          file_path: file[:path]
+        ).first
+
+        unless existing
+          RailsNexus::Backup.create!(
+            model_name: model_name,
+            status: "success",
+            file_path: file[:path],
+            file_size: file[:size],
+            started_at: file[:created_at],
+            completed_at: file[:created_at],
+            triggered_by: "scan"
+          )
+          created += 1
+        end
+      end
+      created
+    end
+
+    # Get backup records from the table, enriched with filesystem data
+    def backup_records
+      RailsNexus::Backup.order(started_at: :desc).limit(50)
     end
 
     # Get backup health status
@@ -270,6 +312,16 @@ module RailsNexus
       exp = units.size - 1 if exp >= units.size
 
       "%.1f %s" % [bytes.to_f / (1024**exp), units[exp]]
+    end
+
+    # Try to guess which backup model a file belongs to from its filename
+    def guess_model_from_filename(filename)
+      # Common patterns: daily_backup_2026-08-23.tar.gz, full_backup.tar.gz, etc.
+      models.map { |m| m[:name] }.each do |name|
+        return name if filename.downcase.include?(name.downcase)
+      end
+      # Fallback: use first model if only one exists
+      models.first&.dig(:name)
     end
   end
 end
