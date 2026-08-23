@@ -21,7 +21,7 @@ jobs:
     env:
       BUNDLE_GEMFILE: gemfiles/rails_${{ matrix.rails }}.gemfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
@@ -92,7 +92,7 @@ jobs:
       DB_USERNAME: ${{ matrix.username }}
       DB_PASSWORD: ${{ matrix.password }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
@@ -114,7 +114,7 @@ jobs:
       RAILS_ENV: production
       SECRET_KEY_BASE_DUMMY: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
@@ -126,7 +126,7 @@ jobs:
     env:
       BUNDLE_GEMFILE: gemfiles/tooling.gemfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
