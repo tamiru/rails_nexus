@@ -1,5 +1,5 @@
 en:
-  faultline:
+  rails_nexus:
     logged_exceptions:
       index:
         title: Logged Exceptions

@@ -1,0 +1,211 @@
+<% page_title t(".title", default: "Backup Management") %>
+
+<div class="space-y-6">
+  <%# ─── Header ──────────────────────────────────────────────── %>
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current">Backups</span>
+  </nav>
+
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <svg class="w-6 h-6" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+      </svg>
+      <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup Management</h1>
+    </div>
+    <div class="flex gap-2">
+      <a href="<%= backup_settings_path %>" class="rn-btn rn-btn-ghost">Settings</a>
+      <a href="<%= backup_files_path %>" class="rn-btn rn-btn-ghost">View All Files</a>
+    </div>
+  </div>
+
+  <%# ─── Health Status ───────────────────────────────────────── %>
+  <% if @health[:status] == "not_configured" %>
+    <div class="rn-card" style="border-left: 3px solid var(--rn-text-muted)">
+      <div class="p-4 flex items-center gap-3">
+        <span class="w-3 h-3 rounded-full" style="background: var(--rn-text-muted)"></span>
+        <div>
+          <span class="text-sm font-semibold" style="color: var(--rn-text)">Backup not configured</span>
+          <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Set <code>config.backup_enabled = true</code> and configure paths in your initializer.</p>
+        </div>
+      </div>
+    </div>
+  <% else %>
+    <div class="rn-card" style="border-left: 3px solid <%= @health[:status] == 'healthy' ? 'var(--rn-success)' : @health[:status] == 'warning' ? 'var(--rn-warning)' : 'var(--rn-danger)' %>">
+      <div class="p-4 flex items-center gap-3">
+        <span class="w-3 h-3 rounded-full" style="background: <%= @health[:status] == 'healthy' ? 'var(--rn-success)' : @health[:status] == 'warning' ? 'var(--rn-warning)' : 'var(--rn-danger)' %>"></span>
+        <div>
+          <span class="text-sm font-semibold" style="color: var(--rn-text)"><%= @health[:message] %></span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Summary Stats ───────────────────────────────────────── %>
+  <% if @summary %>
+    <div class="rn-stats">
+      <div class="rn-stat">
+        <span class="rn-stat-label">Total Backups</span>
+        <span class="rn-stat-value"><%= @summary[:total_files] %></span>
+        <span class="rn-stat-change"><%= @summary[:total_size_human] %></span>
+      </div>
+      <div class="rn-stat">
+        <span class="rn-stat-label">Last Backup</span>
+        <span class="rn-stat-value"><%= @summary[:last_backup] ? time_ago_in_words(@summary[:last_backup]) + " ago" : "Never" %></span>
+        <span class="rn-stat-change"><%= @summary[:last_backup_age_hours] ? "#{@summary[:last_backup_age_hours]}h ago" : "" %></span>
+      </div>
+      <div class="rn-stat">
+        <span class="rn-stat-label">Backup Models</span>
+        <span class="rn-stat-value"><%= @summary[:models_count] %></span>
+        <span class="rn-stat-change">Configured</span>
+      </div>
+      <div class="rn-stat">
+        <span class="rn-stat-label">Health</span>
+        <span class="rn-stat-value" style="color: <%= @summary[:healthy] ? 'var(--rn-success)' : 'var(--rn-danger)' %>">
+          <%= @summary[:healthy] ? "✓ Healthy" : "⚠ Issues" %>
+        </span>
+        <span class="rn-stat-change"><%= @summary[:alerts]&.size || 0 %> alerts</span>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Alerts ──────────────────────────────────────────────── %>
+  <% if @summary && @summary[:alerts]&.any? %>
+    <% @summary[:alerts].each do |alert| %>
+      <div class="rn-card" style="border-left: 3px solid <%= alert[:level] == 'critical' ? 'var(--rn-danger)' : alert[:level] == 'warning' ? 'var(--rn-warning)' : 'var(--rn-info)' %>">
+        <div class="p-3 flex items-center gap-2">
+          <span class="text-sm" style="color: var(--rn-text)"><%= alert[:message] %></span>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%# ─── Backup Models ───────────────────────────────────────── %>
+  <% if @models.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Backup Models</h2>
+        </div>
+      </div>
+      <div class="rn-table-wrap">
+        <table class="rn-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Database</th>
+              <th>Storage</th>
+              <th>Encryption</th>
+              <th>Keep</th>
+              <th style="text-align: right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @models.each do |model| %>
+              <tr>
+                <td>
+                  <span class="font-medium" style="color: var(--rn-text)"><%= model[:name] %></span>
+                  <br><span class="text-xs" style="color: var(--rn-text-muted)"><%= model[:description] %></span>
+                </td>
+                <td><span class="rn-badge <%= model[:has_mysql] ? 'rn-badge-success' : 'rn-badge-muted' %>">MySQL</span></td>
+                <td>
+                  <span class="rn-badge <%= model[:has_local] ? 'rn-badge-info' : '' %>">Local</span>
+                  <% if model[:has_rsync] %><span class="rn-badge rn-badge-warning">RSync</span><% end %>
+                </td>
+                <td><span class="rn-badge <%= model[:has_encryption] ? 'rn-badge-success' : 'rn-badge-muted' %>"><%= model[:has_encryption] ? 'Encrypted' : 'None' %></span></td>
+                <td><%= model[:keep_count] || '∞' %></td>
+                <td style="text-align: right">
+                  <%= button_to "Trigger", backup_trigger_path(model: model[:name]),
+                    method: :post,
+                    class: "rn-btn rn-btn-primary rn-btn-xs",
+                    data: { turbo_confirm: "Run #{model[:name]} backup now?" } %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Recent Backups ──────────────────────────────────────── %>
+  <% if @backup_service.backup_files.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Recent Backups</h2>
+        </div>
+      </div>
+      <div class="rn-table-wrap">
+        <table class="rn-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Size</th>
+              <th>Created</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @backup_service.backup_files.first(10).each do |file| %>
+              <tr>
+                <td>
+                  <span class="rn-mono text-xs" style="color: var(--rn-text)"><%= file[:name] %></span>
+                </td>
+                <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= file[:size_human] %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= time_ago_in_words(file[:created_at]) %> ago</span></td>
+                <td>
+                  <span class="rn-badge <%= file[:age_hours] < 24 ? 'rn-badge-success' : file[:age_hours] < 72 ? 'rn-badge-warning' : 'rn-badge-muted' %>">
+                    <%= file[:age_hours] < 24 ? 'Recent' : file[:age_hours] < 72 ? 'Aging' : 'Old' %>
+                  </span>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Cron Schedule ───────────────────────────────────────── %>
+  <% if @schedule && @schedule[:entries].any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Schedule</h2>
+        </div>
+      </div>
+      <div class="rn-table-wrap">
+        <table class="rn-table">
+          <thead>
+            <tr>
+              <th>Frequency</th>
+              <th>Time</th>
+              <th>Command</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @schedule[:entries].each do |entry| %>
+              <tr>
+                <td><span class="text-sm" style="color: var(--rn-text)"><%= entry[:frequency] %></span></td>
+                <td><span class="text-sm" style="color: var(--rn-text-secondary)"><%= entry[:time] || "All day" %></span></td>
+                <td><span class="rn-mono text-xs" style="color: var(--rn-text-muted)"><%= entry[:command] %></span></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

@@ -1,0 +1,118 @@
+<%# Workflow Panel - Assignment, Priority, Snooze, Mute %>
+<div id="workflow-panel" class="rn-card">
+  <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <h3 class="text-sm font-semibold" style="color: var(--rn-text)">Workflow</h3>
+    </div>
+  </div>
+
+  <div class="p-4 space-y-4">
+    <%# Status Badges %>
+    <div class="flex flex-wrap gap-2">
+      <% if exception.muted? %>
+        <span class="rn-badge" style="background: var(--rn-bg-secondary); color: var(--rn-text-muted)">
+          🔇 Muted
+        </span>
+      <% elsif exception.snoozed? %>
+        <span class="rn-badge" style="background: var(--rn-bg-warning-subtle); color: var(--rn-warning)">
+          😴 Snoozed until <%= exception.snoozed_until&.strftime("%b %d %H:%M") %>
+        </span>
+      <% else %>
+        <span class="rn-badge" style="background: var(--rn-bg-success-subtle); color: var(--rn-success)">
+          ✅ Active
+        </span>
+      <% end %>
+
+      <% if exception.priority.present? %>
+        <span class="rn-badge rn-badge-<%= exception.priority == 'critical' ? 'danger' : exception.priority == 'high' ? 'warning' : exception.priority == 'medium' ? 'info' : '' %>">
+          <%= exception.priority.upcase %>
+        </span>
+      <% end %>
+
+      <% if exception.assigned_to.present? %>
+        <span class="rn-badge" style="background: var(--rn-bg-primary-subtle); color: var(--rn-primary)">
+          👤 <%= exception.assigned_to %>
+        </span>
+      <% end %>
+    </div>
+
+    <%# Priority %>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Priority</label>
+      <div class="flex gap-1 mt-1">
+        <% %w[critical high medium low].each do |level| %>
+          <%= button_to level.capitalize,
+            set_priority_logged_exception_path(exception, priority: level),
+            method: :post,
+            class: "rn-btn rn-btn-xs #{exception.priority == level ? 'rn-btn-primary' : 'rn-btn-ghost'}",
+            data: { turbo_stream: true } %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# Assignment %>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Assigned To</label>
+      <div class="flex gap-2 mt-1">
+        <%= form_with url: assign_logged_exception_path(exception), method: :post, class: "flex gap-2", data: { turbo_stream: true } do |f| %>
+          <%= f.text_field :assigned_to, value: exception.assigned_to, placeholder: "Name or email", class: "rn-input", style: "flex: 1" %>
+          <%= f.submit "Assign", class: "rn-btn rn-btn-primary" %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# Snooze %>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Snooze</label>
+      <div class="flex gap-1 mt-1">
+        <% ["1 hour", "4 hours", "1 day", "1 week"].each do |duration| %>
+          <%= button_to duration,
+            snooze_logged_exception_path(exception, duration: duration),
+            method: :post,
+            class: "rn-btn rn-btn-xs rn-btn-ghost",
+            data: { turbo_stream: true } %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# Mute/Unmute %>
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Notifications</label>
+      <div class="mt-1">
+        <% if exception.muted? %>
+          <%= button_to "Unmute", unmute_logged_exception_path(exception),
+            method: :post,
+            class: "rn-btn rn-btn-sm rn-btn-primary",
+            data: { turbo_stream: true } %>
+        <% else %>
+          <%= button_to "Mute", mute_logged_exception_path(exception),
+            method: :post,
+            class: "rn-btn rn-btn-sm rn-btn-ghost",
+            style: "color: var(--rn-danger)",
+            data: { turbo_stream: true },
+            form: { data: { turbo_confirm: "Mute this exception? Notifications will be silenced." } } %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# Activity Log (last 5) %>
+    <% recent_comments = exception.comments.recent.limit(5) %>
+    <% if recent_comments.any? %>
+      <div>
+        <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Recent Activity</label>
+        <div class="mt-2 space-y-2">
+          <% recent_comments.each do |comment| %>
+            <div class="text-xs p-2 rounded" style="background: var(--rn-bg-secondary)">
+              <span class="font-semibold" style="color: var(--rn-text)"><%= comment.author %></span>
+              <span style="color: var(--rn-text-muted)"><%= comment.body %></span>
+              <span class="ml-1" style="color: var(--rn-text-muted)"><%= time_ago_in_words(comment.created_at) %> ago</span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

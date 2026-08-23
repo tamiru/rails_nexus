@@ -1,0 +1,140 @@
+<% page_title t(".title", default: "Settings") %>
+
+<div class="space-y-6">
+  <%# ─── Header ──────────────────────────────────────────────── %>
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current">Settings</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Settings</h1>
+
+  <%# ─── Webhook Configuration ──────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Webhook Configuration</h2>
+      <p class="text-xs mt-1" style="color: var(--rn-text-muted)">
+        Configure webhook URLs to receive notifications when exceptions occur.
+      </p>
+    </div>
+    <div class="p-4">
+      <% if @webhooks.any? %>
+        <div class="space-y-3 mb-6">
+          <% @webhooks.each_with_index do |url, index| %>
+            <div class="flex items-center gap-3 p-3 rounded-lg" style="background: var(--rn-bg-secondary)">
+              <span class="w-2 h-2 rounded-full" style="background: var(--rn-success)"></span>
+              <span class="text-sm font-mono flex-1" style="color: var(--rn-text)"><%= url %></span>
+              <span class="text-xs" style="color: var(--rn-text-muted)">Active</span>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="p-4 rounded-lg mb-6" style="background: var(--rn-bg-secondary)">
+          <p class="text-sm" style="color: var(--rn-text-muted)">No webhooks configured. Add webhook URLs in your initializer:</p>
+          <pre class="mt-2 text-xs rn-mono p-3 rounded" style="background: var(--rn-bg-primary); color: var(--rn-text-secondary)"><code>RailsNexus.configure do |config|
+  config.webhooks = ["https://hooks.slack.com/services/xxx"]
+  config.webhook_headers = { "Authorization" => "Bearer token" }
+  config.webhook_timeout = 5
+end</code></pre>
+        </div>
+      <% end %>
+
+      <%# Test Webhook Form %>
+      <div class="border-t pt-4" style="border-color: var(--rn-border-light)">
+        <h3 class="text-sm font-semibold mb-3" style="color: var(--rn-text)">Test Webhook</h3>
+        <%= form_tag test_webhook_path, method: :post, class: "flex items-center gap-3" do %>
+          <input type="url" name="url"
+                 placeholder="https://hooks.slack.com/services/xxx"
+                 class="rn-input flex-1"
+                 required>
+          <%= submit_tag "Send Test", class: "rn-btn rn-btn-primary" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Webhook Headers ─────────────────────────────────────── %>
+  <% if @webhook_headers.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Webhook Headers</h2>
+      </div>
+      <div class="p-4">
+        <div class="space-y-2">
+          <% @webhook_headers.each do |key, value| %>
+            <div class="flex items-center gap-3 text-sm">
+              <span class="rn-mono font-medium" style="color: var(--rn-text-secondary)"><%= key %>:</span>
+              <span class="rn-mono" style="color: var(--rn-text-muted)"><%= value %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Delivery History ────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Recent Deliveries</h2>
+        <%= link_to "View all", webhook_deliveries_path, class: "text-xs font-medium", style: "color: var(--rn-primary)" %>
+      </div>
+    </div>
+
+    <% if @recent_deliveries.any? %>
+      <div class="rn-table-wrap">
+        <table class="rn-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>URL</th>
+              <th>Event</th>
+              <th>Response</th>
+              <th>Duration</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @recent_deliveries.each do |delivery| %>
+              <tr>
+                <td>
+                  <span class="rn-badge rn-badge-<%= delivery.success? ? 'success' : 'danger' %>">
+                    <%= delivery.status.capitalize %>
+                  </span>
+                </td>
+                <td>
+                  <span class="text-xs font-mono truncate" style="color: var(--rn-text-secondary); max-width: 200px; display: inline-block">
+                    <%= delivery.url %>
+                  </span>
+                </td>
+                <td>
+                  <span class="text-xs" style="color: var(--rn-text-muted)"><%= delivery.event_type || "—" %></span>
+                </td>
+                <td>
+                  <span class="rn-mono text-xs" style="color: <%= delivery.success? ? 'var(--rn-success)' : 'var(--rn-danger)' %>">
+                    <%= delivery.response_code || "—" %>
+                  </span>
+                </td>
+                <td>
+                  <span class="text-xs" style="color: var(--rn-text-muted)">
+                    <%= delivery.duration ? "#{(delivery.duration * 1000).round}ms" : "—" %>
+                  </span>
+                </td>
+                <td>
+                  <span class="text-xs" style="color: var(--rn-text-muted)">
+                    <%= delivery.created_at.strftime("%b %d %I:%M %p") %>
+                  </span>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <div class="py-8 text-center">
+        <p class="text-sm" style="color: var(--rn-text-muted)">No deliveries recorded yet</p>
+      </div>
+    <% end %>
+  </div>
+</div>

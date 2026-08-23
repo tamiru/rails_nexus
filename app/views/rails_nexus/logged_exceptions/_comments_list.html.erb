@@ -1,0 +1,50 @@
+<%# Comments List %>
+<div id="comments-list" class="rn-card">
+  <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+      </svg>
+      <h3 class="text-sm font-semibold" style="color: var(--rn-text)">
+        Comments
+        <% if exception.comments_count > 0 %>
+          <span class="ml-1 text-xs" style="color: var(--rn-text-muted)">(<%= exception.comments_count %>)</span>
+        <% end %>
+      </h3>
+    </div>
+  </div>
+
+  <div class="p-4">
+    <%# Add Comment Form %>
+    <%= form_with url: add_comment_logged_exception_path(exception), method: :post, class: "mb-4", data: { turbo_stream: true } do |f| %>
+      <div class="flex gap-2">
+        <%= f.text_area :body, placeholder: "Add a comment...", class: "rn-input", rows: 2, style: "flex: 1" %>
+      </div>
+      <div class="flex justify-end mt-2">
+        <%= f.submit "Comment", class: "rn-btn rn-btn-primary" %>
+      </div>
+    <% end %>
+
+    <%# Comments %>
+    <% if exception.comments.any? %>
+      <div class="space-y-3">
+        <% exception.comments.recent.each do |comment| %>
+          <div class="p-3 rounded-lg" style="background: var(--rn-bg-secondary); border-left: 3px solid <%= case comment.comment_type
+            when 'assignment' then 'var(--rn-primary)'
+            when 'status_change' then 'var(--rn-warning)'
+            when 'note' then 'var(--rn-text-muted)'
+            else 'var(--rn-border)'
+          end %>">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold" style="color: var(--rn-text)"><%= comment.author %></span>
+              <span class="text-xs" style="color: var(--rn-text-muted)"><%= time_ago_in_words(comment.created_at) %> ago</span>
+            </div>
+            <p class="text-sm" style="color: var(--rn-text-secondary)"><%= comment.body %></p>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="text-sm text-center" style="color: var(--rn-text-muted)">No comments yet.</p>
+    <% end %>
+  </div>
+</div>

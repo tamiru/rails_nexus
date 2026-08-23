@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-# Specify your gem's dependencies in faultline-rails.gemspec.
+# Specify your gem's dependencies in rails_nexus.gemspec.
 gemspec
 
 gem "puma"
@@ -15,5 +15,5 @@ gem "rack", ">= 3.2"
 # Start debugger with binding.b [https://github.com/ruby/debug]
 # gem "debug", ">= 1.0.0"
 
-gem "will_paginate", "~> 4.0"
+gem "pagy", "~> 6.5"
 gem "ransack", "~> 4.0"

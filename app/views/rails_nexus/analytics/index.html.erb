@@ -1,0 +1,363 @@
+<% page_title t(".title", default: "Real-time Analytics") %>
+
+<div class="space-y-6">
+  <%# ─── Header ──────────────────────────────────────────────── %>
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current">Analytics</span>
+  </nav>
+
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Real-time Analytics</h1>
+    <div class="flex items-center gap-2">
+      <% [7, 14, 30].each do |days| %>
+        <%= link_to "#{days}d", analytics_path(days: days),
+          class: "rn-btn rn-btn-xs #{params[:days].to_i == days ? 'rn-btn-primary' : 'rn-btn-ghost'}" %>
+      <% end %>
+    </div>
+  </div>
+
+  <%# ─── Baseline Health Status ──────────────────────────────── %>
+  <% if @baseline_monitoring %>
+    <% status = @baseline_monitoring[:baseline_health] %>
+    <div class="rn-card" style="border-left: 3px solid <%= status == 'healthy' ? 'var(--rn-success)' : status == 'warning' ? 'var(--rn-warning)' : 'var(--rn-danger)' %>">
+      <div class="p-4 flex items-center gap-3">
+        <span class="w-3 h-3 rounded-full" style="background: <%= status == 'healthy' ? 'var(--rn-success)' : status == 'warning' ? 'var(--rn-warning)' : 'var(--rn-danger)' %>"></span>
+        <div>
+          <span class="text-sm font-semibold" style="color: var(--rn-text)">Baseline: <%= status.capitalize %></span>
+          <% if @baseline_monitoring[:anomalies].any? %>
+            <span class="text-xs ml-2" style="color: var(--rn-danger)"><%= @baseline_monitoring[:anomalies].size %> anomalies detected</span>
+          <% end %>
+          <% if @baseline_monitoring[:spike_detection][:detected] %>
+            <span class="text-xs ml-2" style="color: var(--rn-danger)">Spike: <%= @baseline_monitoring[:spike_detection][:ratio] %>x increase</span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Error Trends ────────────────────────────────────────── %>
+  <% if @error_trends %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Error Trends</h2>
+          <div class="flex items-center gap-4 text-xs" style="color: var(--rn-text-muted)">
+            <span>Total: <strong style="color: var(--rn-text)"><%= number_with_delimiter(@error_trends[:total_count]) %></strong></span>
+            <span>vs prev: <strong style="color: <%= @error_trends[:trend_direction] == 'up' ? 'var(--rn-danger)' : @error_trends[:trend_direction] == 'down' ? 'var(--rn-success)' : 'var(--rn-text)' %>">
+              <%= @error_trends[:trend_direction] == 'up' ? '↑' : @error_trends[:trend_direction] == 'down' ? '↓' : '→' %>
+            </strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <%# Daily trend bar chart %>
+        <% if @error_trends[:daily]&.any? %>
+          <% max_daily = @error_trends[:daily].map { |d| d[:count] }.max || 1 %>
+          <div class="flex items-end gap-1" style="height: 120px">
+            <% @error_trends[:daily].each do |day| %>
+              <div class="flex-1 flex flex-col items-center gap-1" title="<%= day[:date] %>: <%= day[:count] %> errors">
+                <span class="text-[10px]" style="color: var(--rn-text-muted)"><%= day[:count] if day[:count] > 0 %></span>
+                <div class="w-full rounded-t transition-all duration-300" style="height: <%= [(day[:count].to_f / max_daily * 100), 2].max %>% ; min-height: 2px; background: var(--rn-primary); opacity: 0.8"></div>
+                <span class="text-[9px]" style="color: var(--rn-text-muted)"><%= day[:date].strftime("%d") %></span>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Platform Health ──────────────────────────────────────── %>
+  <% if @platform_health&.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Platform Health</h2>
+      </div>
+      <div class="p-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <% @platform_health.each do |ph| %>
+            <% next if ph[:total] == 0 %>
+            <div class="p-3 rounded-lg" style="background: var(--rn-bg-secondary)">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)"><%= ph[:platform] %></span>
+                <span class="w-2 h-2 rounded-full" style="background: <%= ph[:health_score] > 80 ? 'var(--rn-success)' : ph[:health_score] > 50 ? 'var(--rn-warning)' : 'var(--rn-danger)' %>"></span>
+              </div>
+              <div class="text-xl font-bold" style="color: var(--rn-text)"><%= ph[:total] %></div>
+              <div class="text-xs" style="color: var(--rn-text-muted)"><%= ph[:error_rate_per_hour] %>/hr</div>
+              <div class="mt-2 h-1 rounded-full overflow-hidden" style="background: var(--rn-bg-tertiary)">
+                <div class="h-full rounded-full" style="width: <%= ph[:health_score] %>% ; background: <%= ph[:health_score] > 80 ? 'var(--rn-success)' : ph[:health_score] > 50 ? 'var(--rn-warning)' : 'var(--rn-danger)' %>"></div>
+              </div>
+              <div class="text-[10px] mt-1" style="color: var(--rn-text-muted)">Score: <%= ph[:health_score] %>/100</div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Hourly Heatmap ──────────────────────────────────────── %>
+  <% if @hourly_heatmap&.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Hourly Heatmap (7 days)</h2>
+      </div>
+      <div class="p-4 overflow-x-auto">
+        <table class="rn-table" style="font-size: 10px">
+          <thead>
+            <tr>
+              <th></th>
+              <% 24.times do |h| %>
+                <th style="text-align: center; padding: 2px"><%= h %></th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% max_heat = @hourly_heatmap.values.flat_map(&:values).max || 1 %>
+            <% @hourly_heatmap.each do |day, hours| %>
+              <tr>
+                <td style="font-weight: 600; padding: 2px"><%= day[0..2] %></td>
+                <% 24.times do |h| %>
+                  <% count = hours[h] || 0 %>
+                  <% intensity = max_heat > 0 ? (count.to_f / max_heat) : 0 %>
+                  <td style="text-align: center; padding: 2px">
+                    <div style="width: 16px; height: 16px; border-radius: 2px; background: <%= count == 0 ? 'var(--rn-bg-secondary)' : "rgba(99, 102, 241, #{[intensity, 0.1].max})" %>; display: inline-flex; align-items: center; justify-content: center; font-size: 8px; color: <%= intensity > 0.5 ? 'white' : 'var(--rn-text-muted)' %>"><%= count if count > 0 %></div>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Correlation Insights ─────────────────────────────────── %>
+  <% if @correlation_insights %>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <%# By Controller %>
+      <% if @correlation_insights[:by_controller]&.any? %>
+        <div class="rn-card">
+          <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+            <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Errors by Controller</h2>
+          </div>
+          <div class="p-4 space-y-2">
+            <% @correlation_insights[:by_controller].each do |item| %>
+              <div class="flex items-center gap-3">
+                <span class="rn-mono text-xs flex-1 truncate" style="color: var(--rn-text-secondary)"><%= item[:controller] %></span>
+                <div class="w-24 h-2 rounded-full overflow-hidden" style="background: var(--rn-bg-tertiary)">
+                  <div class="h-full rounded-full" style="width: <%= item[:percentage] %>% ; background: var(--rn-primary)"></div>
+                </div>
+                <span class="text-xs font-medium" style="color: var(--rn-text); min-width: 40px; text-align: right"><%= item[:count] %></span>
+                <span class="text-xs" style="color: var(--rn-text-muted); min-width: 40px; text-align: right"><%= item[:percentage] %>%</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%# By Exception Class %>
+      <% if @correlation_insights[:by_exception_class]&.any? %>
+        <div class="rn-card">
+          <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+            <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Errors by Type</h2>
+          </div>
+          <div class="p-4 space-y-2">
+            <% @correlation_insights[:by_exception_class].each do |item| %>
+              <div class="flex items-center gap-3">
+                <span class="text-xs flex-1 truncate" style="color: var(--rn-text-secondary)"><%= item[:exception_class] %></span>
+                <div class="w-24 h-2 rounded-full overflow-hidden" style="background: var(--rn-bg-tertiary)">
+                  <div class="h-full rounded-full" style="width: <%= item[:percentage] %>% ; background: var(--rn-danger)"></div>
+                </div>
+                <span class="text-xs font-medium" style="color: var(--rn-text); min-width: 40px; text-align: right"><%= item[:count] %></span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%# Time of Day Distribution %>
+      <% if @correlation_insights[:by_time_of_day]&.any? %>
+        <div class="rn-card">
+          <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+            <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Errors by Hour</h2>
+          </div>
+          <div class="p-4">
+            <% max_hourly = @correlation_insights[:by_time_of_day].map { |h| h[:count] }.max || 1 %>
+            <div class="flex items-end gap-0.5" style="height: 80px">
+              <% @correlation_insights[:by_time_of_day].each do |hour| %>
+                <div class="flex-1 flex flex-col items-center" title="<%= hour[:hour] %>h: <%= hour[:count] %>">
+                  <div class="w-full rounded-t" style="height: <%= [(hour[:count].to_f / max_hourly * 100), 1].max %>% ; min-height: 1px; background: var(--rn-info); opacity: 0.7"></div>
+                  <span class="text-[8px]" style="color: var(--rn-text-muted)"><%= hour[:hour] %></span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <%# Co-occurring Errors %>
+      <% if @correlation_insights[:co_occurring]&.any? %>
+        <div class="rn-card">
+          <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+            <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Co-occurring Errors</h2>
+            <p class="text-xs" style="color: var(--rn-text-muted)">Errors happening within 5 minutes of each other</p>
+          </div>
+          <div class="p-4 space-y-3">
+            <% @correlation_insights[:co_occurring].each do |pair| %>
+              <div class="p-3 rounded-lg" style="background: var(--rn-bg-secondary)">
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="rn-badge rn-badge-danger"><%= pair[:error_a] %></span>
+                  <span style="color: var(--rn-text-muted)">↔</span>
+                  <span class="rn-badge rn-badge-danger"><%= pair[:error_b] %></span>
+                </div>
+                <div class="text-xs mt-1" style="color: var(--rn-text-muted)"><%= pair[:co_occurrences] %> co-occurrences</div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# ─── Occurrence Patterns ──────────────────────────────────── %>
+  <% if @occurrence_patterns && @occurrence_patterns[:patterns] %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          </svg>
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Occurrence Patterns</h2>
+        </div>
+      </div>
+      <div class="p-4">
+        <%# Detected Patterns %>
+        <% if @occurrence_patterns[:patterns]&.any? %>
+          <div class="space-y-3 mb-4">
+            <% @occurrence_patterns[:patterns].each do |pattern| %>
+              <div class="flex items-start gap-3 p-3 rounded-lg" style="background: var(--rn-bg-secondary)">
+                <span class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style="background: <%= case pattern[:severity]
+                  when :high then 'var(--rn-danger)'
+                  when :medium then 'var(--rn-warning)'
+                  when :positive then 'var(--rn-success)'
+                  else 'var(--rn-text-muted)'
+                end %>"></span>
+                <div class="flex-1">
+                  <p class="text-sm font-medium" style="color: var(--rn-text)"><%= pattern[:description] %></p>
+                  <% if pattern[:recommendation] %>
+                    <p class="text-xs mt-1" style="color: var(--rn-text-muted)">💡 <%= pattern[:recommendation] %></p>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% else %>
+          <p class="text-sm mb-4" style="color: var(--rn-text-muted)">No significant patterns detected.</p>
+        <% end %>
+
+        <%# Trend %>
+        <% if @occurrence_patterns[:trend] && @occurrence_patterns[:trend][:direction] != :stable %>
+          <div class="p-3 rounded-lg mb-4" style="background: <%= @occurrence_patterns[:trend][:direction] == :increasing ? 'var(--rn-bg-danger-subtle)' : 'var(--rn-bg-success-subtle)' %>">
+            <div class="flex items-center gap-2">
+              <span class="text-lg"><%= @occurrence_patterns[:trend][:direction] == :increasing ? '📈' : '📉' %></span>
+              <div>
+                <span class="text-sm font-semibold" style="color: var(--rn-text)"><%= @occurrence_patterns[:trend][:direction].to_s.capitalize %> Trend</span>
+                <span class="text-xs ml-2" style="color: var(--rn-text-muted)"><%= @occurrence_patterns[:trend][:pct_change] %>% change</span>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%# Hotspots + Cycles side by side %>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <%# Hotspots %>
+          <% if @occurrence_patterns[:hotspots]&.any? %>
+            <div class="p-3 rounded-lg" style="background: var(--rn-bg-secondary)">
+              <h3 class="text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--rn-text-muted)">🔥 Error Hotspots</h3>
+              <div class="space-y-2">
+                <% @occurrence_patterns[:hotspots].each do |hotspot| %>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs" style="color: var(--rn-text)"><%= hotspot[:label] %></span>
+                    <span class="text-xs font-semibold" style="color: var(--rn-danger)"><%= hotspot[:avg_errors] %> avg</span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <%# Cycle Info %>
+          <% cycle = @occurrence_patterns[:cycle_info] %>
+          <% if cycle && cycle[:detected] %>
+            <div class="p-3 rounded-lg" style="background: var(--rn-bg-secondary)">
+              <h3 class="text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--rn-text-muted)">🔄 Cycle Detected</h3>
+              <p class="text-sm" style="color: var(--rn-text)"><%= cycle[:description] %></p>
+              <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Peak: <%= cycle[:peak_hour] %>:00 · Off-peak: <%= cycle[:off_peak_hour] %>:00</p>
+            </div>
+          <% end %>
+        </div>
+
+        <%# Burst Periods %>
+        <% if @occurrence_patterns[:burst_periods]&.any? %>
+          <div class="mt-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--rn-text-muted)">⚡ Burst Periods</h3>
+            <div class="rn-table-wrap">
+              <table class="rn-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Count</th>
+                    <th>Spike Ratio</th>
+                    <th>Severity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% @occurrence_patterns[:burst_periods].each do |burst| %>
+                    <tr>
+                      <td><span class="text-xs"><%= burst[:time] %></span></td>
+                      <td><span class="font-bold" style="color: var(--rn-danger)"><%= burst[:count] %></span></td>
+                      <td><span class="text-xs"><%= burst[:spike_ratio] %>x</span></td>
+                      <td><span class="rn-badge rn-badge-<%= burst[:severity] == :critical ? 'danger' : burst[:severity] == :high ? 'warning' : 'info' %>"><%= burst[:severity] %></span></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Top Errors ──────────────────────────────────────────── %>
+  <% if @top_errors&.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Top Errors</h2>
+      </div>
+      <div class="rn-table-wrap">
+        <table class="rn-table">
+          <thead>
+            <tr>
+              <th>Exception</th>
+              <th>Controller#Action</th>
+              <th>Count</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @top_errors.each do |error| %>
+              <tr>
+                <td><span class="rn-badge rn-badge-danger"><%= error[:exception_class] %></span></td>
+                <td><span class="rn-mono text-xs" style="color: var(--rn-text-secondary)"><%= error[:controller] %>#<%= error[:action] %></span></td>
+                <td><span class="font-bold" style="color: var(--rn-text)"><%= error[:count] %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= error[:last_seen]&.strftime("%b %d %H:%M") %></span></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

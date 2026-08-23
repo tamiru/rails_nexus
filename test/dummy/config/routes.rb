@@ -1,3 +1,3 @@
 Rails.application.routes.draw do
-  mount Faultline::Engine => "/faultline"
+  mount RailsNexus::Engine => "/rails_nexus"
 end
