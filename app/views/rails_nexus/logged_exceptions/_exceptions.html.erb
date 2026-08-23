@@ -14,10 +14,11 @@
     </div>
   <% else %>
     <%# ─── Table Header Bar ───────────────────────────────────── %>
-    <div class="px-4 py-2.5 flex items-center justify-between" style="background: var(--rn-bg-secondary); border-bottom: 1px solid var(--rn-border-light)">
-      <div class="flex items-center gap-3">
+    <div class="rn-exceptions-toolbar" style="background: var(--rn-bg-secondary); border-bottom: 1px solid var(--rn-border-light)">
+      <div class="rn-exceptions-toolbar-summary">
         <span class="text-xs font-medium" style="color: var(--rn-text-secondary)">
-          <span class="font-semibold" style="color: var(--rn-text)"><%= number_with_delimiter(@pagy.count) %></span> exceptions
+          <span class="font-semibold" style="color: var(--rn-text)"><%= number_with_delimiter(@pagy.count) %></span>
+          <%= "exception".pluralize(@pagy.count) %>
           <% if filtered? %>
             <span style="color: var(--rn-text-muted)">(filtered)</span>
           <% end %>
@@ -35,7 +36,7 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="rn-exceptions-toolbar-actions">
         <%# Keyboard hint %>
         <span class="text-xs flex items-center gap-1" style="color: var(--rn-text-muted)">
           <span class="rn-kbd">?</span> shortcuts
@@ -54,6 +55,7 @@
     <%# ─── Exception Table ────────────────────────────────────── %>
     <div class="rn-table-wrap">
       <table class="rn-table rn-exceptions-table">
+        <caption class="sr-only">Logged application exceptions</caption>
         <thead>
           <tr>
             <th class="rn-col-severity"><span class="sr-only">Severity</span></th>
@@ -79,24 +81,23 @@
           <% @exceptions.each_with_index do |exception, index| %>
             <tr id="<%= dom_id(exception) %>"
                 class="group"
-                style="cursor: pointer; position: relative"
-                data-action="click->rails_nexus#selectRow"
+                tabindex="0"
+                aria-label="View <%= exception.exception_class %>: <%= exception.message.presence || 'No message' %>"
+                data-action="click->rails_nexus#selectRow keydown.enter->rails_nexus#selectRow keydown.space->rails_nexus#selectRow"
                 data-url="<%= logged_exception_path(exception) %>"
                 data-index="<%= index %>"
                 data-rails_nexus-index-param="<%= index %>">
 
               <%# Severity indicator dot %>
-              <td>
-                <span class="rn-count-indicator rn-badge-<%= severity_for(exception) %>"
-                      style="background: var(--rn-<%= severity_for(exception) %>-light); color: var(--rn-<%= severity_for(exception) %>); width: 0.5rem; height: 0.5rem; min-width: 0; padding: 0; border-radius: 50%">
-                </span>
+              <td class="rn-col-severity">
+                <span class="rn-severity-dot rn-severity-<%= severity_for(exception) %>" aria-hidden="true"></span>
               </td>
 
               <%# Exception class with severity badge %>
               <td class="rn-col-exception">
-                <span class="rn-badge rn-badge-<%= severity_for(exception) %> rn-exception-name" title="<%= exception.exception_class %>"><%= exception.exception_class %></span>
+                <span class="rn-exception-name" title="<%= exception.exception_class %>"><%= exception.exception_class %></span>
                 <% if exception.respond_to?(:fingerprint) && exception.fingerprint.present? %>
-                  <span class="rn-row-meta rn-mono" title="Fingerprint"><%= exception.fingerprint.first(10) %></span>
+                  <span class="rn-row-meta rn-mono" title="Fingerprint <%= exception.fingerprint %>">#<%= exception.fingerprint.first(10) %></span>
                 <% end %>
               </td>
 
@@ -128,7 +129,7 @@
 
               <%# Occurrence count %>
               <td class="rn-col-count">
-                <span class="rn-badge rn-badge-muted"><%= number_with_delimiter(exception_occurrence_count(exception)) %></span>
+                <span class="rn-occurrence-count" title="<%= pluralize(exception_occurrence_count(exception), 'occurrence') %>"><%= number_with_delimiter(exception_occurrence_count(exception)) %></span>
               </td>
 
               <%# Workflow indicators %>
@@ -148,11 +149,11 @@
               </td>
 
               <%# Time (relative) %>
-              <td class="rn-date"><%= pretty_exception_date(exception) %></td>
+              <td class="rn-col-time rn-date"><%= pretty_exception_date(exception) %></td>
 
               <%# Actions (delete on hover) %>
               <td class="rn-col-actions" style="text-align: right">
-                <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="rn-row-actions">
                   <%= link_to logged_exception_path(exception),
                     class: "rn-icon-btn",
                     style: "color: var(--rn-text-muted)",

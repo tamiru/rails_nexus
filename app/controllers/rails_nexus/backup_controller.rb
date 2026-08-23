@@ -95,11 +95,15 @@ module RailsNexus
       params.require(:backup_config).permit(
         :name, :description, :database_name, :adapter, :host, :port,
         :username, :password, :storage_path, :keep_count,
-        :compress, :encrypt, :encrypt_password,
+        :compress, :encrypted, :encryption_password,
         :rsync_enabled, :rsync_host, :rsync_port, :rsync_user, :rsync_path, :rsync_mirror,
         :notify_command, :notify_on_success, :notify_on_failure,
         :schedule_cron, :enabled,
-        skip_tables: []
+        :s3_enabled, :s3_access_key, :s3_secret_key, :s3_bucket, :s3_region, :s3_prefix,
+        :gpg_enabled, :gpg_password,
+        :email_notify, :email_to,
+        :archive_enabled, :bzip2_compress, :split_chunks,
+        skip_tables: [], archive_paths: [], archive_excludes: []
       )
     end
 

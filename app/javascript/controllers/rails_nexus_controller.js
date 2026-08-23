@@ -274,12 +274,14 @@ export default class extends Controller {
       this.closeShortcuts()
     } else {
       this.shortcutsDialogTarget.classList.add("open")
+      document.getElementById("rn-shortcuts-button")?.setAttribute("aria-expanded", "true")
     }
   }
 
   closeShortcuts() {
     if (this.hasShortcutsDialogTarget) {
       this.shortcutsDialogTarget.classList.remove("open")
+      document.getElementById("rn-shortcuts-button")?.setAttribute("aria-expanded", "false")
     }
   }
 

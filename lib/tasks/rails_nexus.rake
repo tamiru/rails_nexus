@@ -298,4 +298,14 @@ namespace :rails_nexus do
       end
     end
   end
+
+  desc "Seed backup configs from ~/Backup gem models"
+  task seed_backups: :environment do
+    seed_file = File.join(RailsNexus::Engine.root, "db", "seeds", "backup_configs.rb")
+    if File.exist?(seed_file)
+      load seed_file
+    else
+      puts "Seed file not found: #{seed_file}"
+    end
+  end
 end

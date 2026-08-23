@@ -139,14 +139,17 @@ class CreateRailsNexusTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Mig
       t.integer :port
       t.string  :username
       t.string  :password
-      t.text    :skip_tables,   default: "[]"
+      t.string  :skip_tables
 
       t.string  :storage_path,  null: false
       t.integer :keep_count,    default: 30
 
       t.boolean :compress,      default: true
-      t.boolean :encrypt,       default: false
-      t.string  :encrypt_password
+      t.boolean :bzip2_compress, default: false
+      t.boolean :encrypted,     default: false
+      t.string  :encryption_password
+      t.boolean :gpg_enabled,   default: false
+      t.string  :gpg_password
 
       t.boolean :rsync_enabled, default: false
       t.string  :rsync_host
@@ -155,9 +158,26 @@ class CreateRailsNexusTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Mig
       t.string  :rsync_path
       t.boolean :rsync_mirror,  default: false
 
+      # S3 storage
+      t.boolean :s3_enabled,    default: false
+      t.string  :s3_access_key
+      t.string  :s3_secret_key
+      t.string  :s3_bucket
+      t.string  :s3_region,     default: "us-east-1"
+      t.string  :s3_prefix
+
+      # Archives (file/dir backup)
+      t.boolean :archive_enabled, default: false
+      t.string  :archive_paths
+      t.string  :archive_excludes
+      t.boolean :split_chunks,  default: false
+
+      # Notifications
       t.string  :notify_command
       t.boolean :notify_on_success, default: true
       t.boolean :notify_on_failure, default: true
+      t.boolean :email_notify,  default: false
+      t.string  :email_to
 
       t.string  :schedule_cron
       t.boolean :enabled,       default: true
