@@ -40,7 +40,7 @@ class RailsNexus::ConfigurationTest < ActiveSupport::TestCase
   end
 
   test "configure block sets exception_data" do
-    data = ->(controller) { { user_id: 1 } }
+    data = ->(_controller) { { user_id: 1 } }
     RailsNexus.configure { |c| c.exception_data = data }
 
     assert_equal data, RailsNexus.configuration.exception_data

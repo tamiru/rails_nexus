@@ -1,8 +1,10 @@
 /.bundle/
 /.idea/
+*.Zone.Identifier
 /doc/
 /log/*.log
 /pkg/
+gemfiles/*.lock
 /*.gem
 /tmp/
 /test/dummy/db/*.sqlite3
@@ -10,5 +12,13 @@
 /test/dummy/log/*.log
 /test/dummy/storage/
 /test/dummy/tmp/
+/test/dummy/public/assets/
+*.sqlite3
+*.sqlite3-*
+*.log
+*.dump
+*.sql.gz
+*.tar.gz
+*.backup
 /.freebuff/
 ~/  (home dir files)

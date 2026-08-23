@@ -2,8 +2,6 @@
 
 module RailsNexus
   class StatsController < ApplicationController
-    before_action :verify_access
-
     def index
       @system_stats = collect_system_stats
       @ruby_stats = collect_ruby_stats
@@ -18,14 +16,6 @@ module RailsNexus
     end
 
     private
-
-    def verify_access
-      config = RailsNexus.configuration
-      return if config.auth_block.nil?
-      unless config.auth_block&.call(self)
-        render plain: "Forbidden", status: :forbidden
-      end
-    end
 
     def collect_system_stats
       stats = {}
@@ -83,7 +73,7 @@ module RailsNexus
         process_stats[:thread_count] = "N/A"
       end
       begin
-        process_stats[:open_files] = `ls /proc/#{pid}/fd 2>/dev/null | wc -l`.strip.to_i
+        process_stats[:open_files] = Dir.children("/proc/#{pid}/fd").size
       rescue StandardError
         process_stats[:open_files] = 0
       end
@@ -133,13 +123,14 @@ module RailsNexus
         }
       else
         # Fallback: use `df` command
-        df_output = `df -h / 2>/dev/null`.split("\n").last&.split
+        stdout, _stderr, status = Open3.capture3("df", "-h", "/")
+        df_output = status.success? ? stdout.lines.last&.split : nil
         if df_output
           {
             total_gb: df_output[1],
             used_gb: df_output[2],
             available_gb: df_output[3],
-            usage_percent: df_output[4]&.to_i || 0
+            usage_percent: df_output[4].to_i
           }
         else
           { total_gb: "N/A", used_gb: "N/A", available_gb: "N/A", usage_percent: 0 }
@@ -201,11 +192,7 @@ module RailsNexus
       stats[:pool_available] = pool.available? ? pool.connections.size : 0
 
       # Database version
-      begin
-        stats[:version] = ActiveRecord::Base.connection.select_value("SELECT version()")
-      rescue StandardError
-        stats[:version] = "N/A"
-      end
+      stats[:version] = RailsNexus::DatabaseAdapter.database_version
 
       # Table stats (rails_nexus tables)
       stats[:tables] = collect_table_stats
@@ -308,24 +295,24 @@ module RailsNexus
       end
 
       # Check for pg_dump (PostgreSQL)
-      if system("which pg_dump > /dev/null 2>&1")
+      if (version = executable_version("pg_dump"))
         stats[:detected] = true
         stats[:gem] ||= "pg_dump"
-        stats[:details][:pg_dump] = `pg_dump --version 2>/dev/null`.strip
+        stats[:details][:pg_dump] = version
       end
 
       # Check for mysqldump (MySQL)
-      if system("which mysqldump > /dev/null 2>&1")
+      if (version = executable_version("mysqldump"))
         stats[:detected] = true
         stats[:gem] ||= "mysqldump"
-        stats[:details][:mysqldump] = `mysqldump --version 2>/dev/null`.strip
+        stats[:details][:mysqldump] = version
       end
 
       # Check for AWS CLI (RDS backups)
-      if system("which aws > /dev/null 2>&1")
+      if (version = executable_version("aws"))
         stats[:detected] = true
         stats[:gem] ||= "aws-cli"
-        stats[:details][:aws_cli] = `aws --version 2>/dev/null`.strip
+        stats[:details][:aws_cli] = version
 
         # Check for RDS snapshots if configured
         begin
@@ -339,16 +326,16 @@ module RailsNexus
       end
 
       # Check for docker backup solutions
-      if File.exist?("/var/lib/docker")
+      if File.exist?("/var/lib/docker") && (version = executable_version("docker"))
         stats[:detected] = true
         stats[:gem] ||= "docker"
-        stats[:details][:docker] = `docker --version 2>/dev/null`.strip
+        stats[:details][:docker] = version
       end
 
       # Check for crontab entries related to backups
       begin
-        crontab = `crontab -l 2>/dev/null`
-        if crontab.include?("backup") || crontab.include?("dump")
+        crontab, _stderr, status = Open3.capture3("crontab", "-l")
+        if status.success? && (crontab.include?("backup") || crontab.include?("dump"))
           stats[:details][:crontab_backup] = true
           stats[:status] = "scheduled" if stats[:status] == "unknown"
         end
@@ -391,11 +378,13 @@ module RailsNexus
         begin
           next unless ActiveRecord::Base.connection.table_exists?(table_name)
 
-          count = ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{table_name}")
+          quoted_table = ActiveRecord::Base.connection.quote_table_name(table_name)
+          count = ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{quoted_table}").to_i
           tables << {
             name: table_name,
             row_count: count,
-            size_mb: 0,
+            size_mb: nil,
+            size_supported: false,
             status: count > 0 ? "active" : "empty"
           }
         rescue StandardError
@@ -415,7 +404,7 @@ module RailsNexus
           SQL
           result.each do |row|
             table = tables.find { |t| t[:name] == row["table_name"] }
-            table[:size_mb] = row["size_mb"] if table
+            table&.merge!(size_mb: row["size_mb"].to_f, size_supported: true)
           end
         elsif adapter.include?("postgresql")
           result = ActiveRecord::Base.connection.execute(<<~SQL)
@@ -427,7 +416,7 @@ module RailsNexus
           SQL
           result.each do |row|
             table = tables.find { |t| t[:name] == row["table_name"] }
-            table[:size_mb] = (row["size_bytes"].to_f / 1024 / 1024).round(2) if table
+            table&.merge!(size_mb: (row["size_bytes"].to_f / 1024 / 1024).round(2), size_supported: true)
           end
         end
       rescue StandardError
@@ -435,6 +424,20 @@ module RailsNexus
       end
 
       tables
+    end
+
+    def executable_version(name)
+      executable = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR)
+        .map { |directory| File.join(directory, name) }
+        .find { |path| File.file?(path) && File.executable?(path) }
+      return nil unless executable
+
+      stdout, stderr, status = Open3.capture3(executable, "--version")
+      return nil unless status.success?
+
+      [stdout, stderr].find(&:present?)&.lines&.first&.strip
+    rescue Errno::ENOENT, Errno::EACCES
+      nil
     end
 
     def collect_platform_stats
@@ -476,17 +479,14 @@ module RailsNexus
     end
 
     def process_uptime
-      start_time = File.read("/proc/#{Process.pid}/stat").split[21].to_i rescue nil
-      if start_time
-        uptime_seconds = Time.now.to_i - (Process.clock_gettime(Process::CLOCK_MONOTONIC).to_i - start_time)
-        seconds = Time.now.to_i - start_time
-        days = seconds / 86400
-        hours = (seconds % 86400) / 3600
-        minutes = (seconds % 3600) / 60
-        "#{days}d #{hours}h #{minutes}m"
-      else
-        "N/A"
-      end
+      stdout, _stderr, status = Open3.capture3("ps", "-o", "etimes=", "-p", Process.pid.to_s)
+      return "N/A" unless status.success?
+
+      seconds = stdout.to_i
+      days = seconds / 86_400
+      hours = (seconds % 86_400) / 3600
+      minutes = (seconds % 3600) / 60
+      "#{days}d #{hours}h #{minutes}m"
     rescue StandardError
       "N/A"
     end

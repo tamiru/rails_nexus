@@ -7,7 +7,7 @@
   <title><%= content_for?(:title) ? yield(:title) : RailsNexus.configuration.application_name || "RailsNexus" %></title>
 
   <%= stylesheet_link_tag "rails_nexus/application", "data-turbo-track": "reload" %>
-  <%= javascript_importmap_tags "rails_nexus/application" %>
+  <%= javascript_include_tag "rails_nexus/application", defer: true, "data-turbo-track": "reload" %>
 
   <% if respond_to?(:turbo_refreshes_with) %>
     <%= turbo_refreshes_with method: :morph, scroll: :preserve %>

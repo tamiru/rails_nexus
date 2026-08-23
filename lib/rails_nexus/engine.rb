@@ -11,8 +11,6 @@ module RailsNexus
     initializer "rails_nexus.assets", before: "propshaft.assets_middleware", group: :all do |app|
       next unless app.config.respond_to?(:assets)
 
-      app.config.assets.paths << root.join("app/javascript")
-
       # Sprockets 4 only compiles assets listed in a manifest or in the
       # precompile list. Register these here so mounting applications do not
       # need to modify their own asset manifest.
@@ -20,19 +18,8 @@ module RailsNexus
         app.config.assets.precompile += %w[
           rails_nexus/application.css
           rails_nexus/application.js
-          controllers/rails_nexus_controller.js
-          controllers/rails_nexus_detail_controller.js
-          controllers/rails_nexus_sidebar_controller.js
-          controllers/rails_nexus_theme_controller.js
         ]
       end
-    end
-
-    # ─── Importmap support (for importmap-rails users) ────────────
-
-    initializer "rails_nexus.importmap", before: "importmap" do |app|
-      app.config.importmap.paths << root.join("config/importmap.rb")
-      app.config.importmap.cache_sweepers << root.join("app/javascript")
     end
 
     # ─── Database connection (separate DB support) ─────────────────

@@ -49,6 +49,13 @@ module RailsNexus
     #   config.webhook_headers = { "Authorization" => "Bearer token123" }
     attr_accessor :webhook_headers
 
+    # Host allow/deny policies. Wildcards such as "*.example.com" are accepted.
+    attr_accessor :webhook_allowed_hosts
+    attr_accessor :webhook_denied_hosts
+
+    # HTTP remains disabled except when this is true and Rails.env is development.
+    attr_accessor :webhook_allow_http_in_development
+
     # ─── Logging ───────────────────────────────────────────────
 
     # Enable structured logging (default: true).
@@ -209,6 +216,9 @@ module RailsNexus
       @webhooks = []
       @webhook_timeout = 5
       @webhook_headers = {}
+      @webhook_allowed_hosts = []
+      @webhook_denied_hosts = []
+      @webhook_allow_http_in_development = false
 
       # Logging
       @logging_enabled = true

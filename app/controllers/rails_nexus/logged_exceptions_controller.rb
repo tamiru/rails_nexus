@@ -2,8 +2,6 @@
 
 module RailsNexus
   class LoggedExceptionsController < ApplicationController
-    before_action :rails_nexus_require_auth!
-
     RANSACK_FILTERS = %i[
       action_name_cont assigned_to_cont controller_name_cont created_at_gteq created_at_lteq
       exception_class_cont fingerprint_cont message_cont

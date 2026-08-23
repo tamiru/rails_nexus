@@ -1,0 +1,9 @@
+source "https://rubygems.org"
+
+gemspec path: ".."
+gem "rails", "~> 8.1.0"
+gem "rack", ">= 3.2"
+gem "sqlite3", ">= 2.1"
+gem "pg", "~> 1.5"
+gem "mysql2", "~> 0.5"
+gem "sprockets-rails", "~> 3.4"

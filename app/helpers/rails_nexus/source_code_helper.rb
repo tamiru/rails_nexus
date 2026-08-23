@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "open3"
+require "pathname"
+
 module RailsNexus
   module SourceCodeHelper
     # Parse a backtrace line into components
@@ -20,16 +23,22 @@ module RailsNexus
     # Read source code snippet around a specific line
     # Returns { lines: Array, file: String, from_line: Integer, to_line: Integer, error_line: Integer }
     def read_source_snippet(file_path, error_line, context_lines: 5)
-      return nil unless file_path.present? && File.exist?(file_path)
+      resolved_path = resolve_source_path(file_path)
+      return nil unless resolved_path
 
-      total_lines = File.foreach(file_path).count
+      error_line = Integer(error_line, exception: false)
+      return nil unless error_line&.positive?
+
+      context_lines = (Integer(context_lines, exception: false) || 5).clamp(0, 50)
+
+      total_lines = File.foreach(resolved_path).count
       from_line = [error_line - context_lines, 1].max
       to_line = [error_line + context_lines, total_lines].min
 
       lines = []
       current_line = 0
 
-      File.foreach(file_path) do |raw_line|
+      File.foreach(resolved_path) do |raw_line|
         current_line += 1
         break if current_line > to_line
         next if current_line < from_line
@@ -43,7 +52,7 @@ module RailsNexus
 
       {
         lines: lines,
-        file: file_path,
+        file: resolved_path,
         from_line: from_line,
         to_line: to_line,
         error_line: error_line
@@ -53,13 +62,23 @@ module RailsNexus
     # Get git blame for a specific line
     # Returns { sha: String, author: String, date: String, message: String }
     def git_blame_for_line(file_path, line_number)
-      return nil unless file_path.present? && line_number.present?
-      return nil unless File.exist?(file_path)
-      return nil unless system("git", "rev-parse", "--git-dir", File.dirname(file_path), [:out, :err] => File::NULL)
+      resolved_path = resolve_source_path(file_path)
+      line_number = Integer(line_number, exception: false)
+      return nil unless resolved_path && line_number&.positive?
+
+      directory = File.dirname(resolved_path)
+      repository_root, _stderr, status = Open3.capture3("git", "-C", directory, "rev-parse", "--show-toplevel")
+      return nil unless status.success?
+
+      repository_root = Pathname.new(repository_root.strip).realpath
+      relative_path = Pathname.new(resolved_path).relative_path_from(repository_root).to_s
+      return nil if relative_path == ".." || relative_path.start_with?("../")
 
       # Get blame for single line
-      blame_output = `git -C "#{File.dirname(file_path)}" blame -L #{line_number},#{line_number} -p "#{File.basename(file_path)}" 2>/dev/null`
-      return nil unless $?.success?
+      blame_output, _stderr, status = Open3.capture3(
+        "git", "-C", repository_root.to_s, "blame", "-L", "#{line_number},#{line_number}", "--porcelain", "--", relative_path
+      )
+      return nil unless status.success?
 
       # Parse porcelain blame output
       result = {}
@@ -80,6 +99,8 @@ module RailsNexus
       end
 
       result.presence
+    rescue ArgumentError, Errno::ENOENT, Errno::EACCES
+      nil
     end
 
     # Get source code with git blame for multiple backtrace lines
@@ -99,9 +120,27 @@ module RailsNexus
           parsed: parsed,
           source: source,
           blame: blame,
-          is_app_code: parsed[:file]&.start_with?(Rails.root.to_s)
+          is_app_code: resolve_source_path(parsed[:file]).present?
         }
       end
+    end
+
+    # Resolve a path and ensure its canonical location is a regular file inside Rails.root.
+    def resolve_source_path(file_path)
+      return nil if file_path.blank?
+
+      root = Pathname.new(Rails.root).realpath
+      candidate = Pathname.new(file_path.to_s)
+      candidate = root.join(candidate) unless candidate.absolute?
+      resolved = candidate.realpath
+      relative = resolved.relative_path_from(root).to_s
+
+      return nil if relative == ".." || relative.start_with?("../")
+      return nil unless resolved.file?
+
+      resolved.to_s
+    rescue ArgumentError, Errno::ENOENT, Errno::EACCES
+      nil
     end
   end
 end

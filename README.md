@@ -85,7 +85,7 @@ RailsNexus is an extensible operations and administration console for Rails appl
 
 - Ruby 3.2 or newer
 - Rails 8.0 or newer
-- A database supported by Active Record
+- SQLite 3, PostgreSQL, or MySQL/MariaDB
 
 ## Installation
 
@@ -108,7 +108,7 @@ This will:
 1. Copy the database migration with proper indexes.
 2. Create a configuration initializer at `config/initializers/rails_nexus.rb`.
 3. Mount the engine in your routes.
-4. Add `rescue_from Exception, with: :log_exception_handler` to `ApplicationController`.
+4. Add `rescue_from StandardError, with: :log_exception_handler` to `ApplicationController`.
 
 The dashboard is now available at `/rails_nexus`.
 
@@ -151,6 +151,10 @@ class Api::V1::BaseController < ActionController::API
 end
 ```
 
+Older applications using `RailsOps::ExceptionLoggable` remain supported for
+boot compatibility. Update them to `RailsNexus::ExceptionLoggable` when
+convenient.
+
 ### Background jobs (Sidekiq)
 
 RailsNexus automatically logs Sidekiq job exceptions when the middleware is configured:
@@ -168,7 +172,10 @@ end
 
 The dashboard contains sensitive information. **Do not expose it to unauthenticated users.**
 
-By default, the dashboard returns `403 Forbidden` for all requests. Configure authentication:
+Authentication is applied globally by `RailsNexus::ApplicationController`,
+including workflow mutations and source-code viewing. If `auth_block` is
+missing, returns `false`/`nil`, or raises an error, every dashboard request
+returns `403 Forbidden`. Configure authentication:
 
 ```ruby
 # config/initializers/rails_nexus.rb
@@ -294,7 +301,17 @@ config.webhooks = [
 ]
 config.webhook_timeout = 5
 config.webhook_headers = { "Authorization" => "Bearer token" }
+config.webhook_allowed_hosts = ["hooks.slack.com", "*.example.com"] # optional
+config.webhook_denied_hosts = ["blocked.example.com"]
+# HTTP is only available in development, and only with this explicit opt-in:
+config.webhook_allow_http_in_development = false
 ```
+
+Webhook destinations must use HTTPS, cannot contain URL credentials, and are
+resolved and pinned to a validated public IP before connecting. Private,
+loopback, link-local, metadata, multicast, unspecified, reserved, and redirect
+destinations are rejected. Logged delivery URLs redact their path and query so
+provider tokens are not persisted.
 
 POST JSON to each URL on every new exception:
 ```json
@@ -347,7 +364,7 @@ rake rails_nexus:test_webhook     # Test webhook configuration
 
 ### Hotwire (default)
 
-RailsNexus includes `importmap-rails`, `turbo-rails`, and `stimulus-rails` as dependencies. Its namespaced importmap is automatically composed into the host application, so no frontend installation step is needed.
+RailsNexus ships a prebuilt JavaScript asset containing Turbo and its namespaced Stimulus controllers. It does not require `importmap-rails`, does not modify the host JavaScript entry point, and works in hosts using Importmap, jsbundling/esbuild/Bun, or no JavaScript bundler. The bundle reuses a host Stimulus application exposed as `window.Stimulus`; otherwise it starts one engine-scoped application and reuses it across repeated loads.
 
 ### Styling
 
@@ -365,7 +382,7 @@ If your app uses Tailwind, add the gem's views as a source:
 
 #### Asset pipelines
 
-The engine registers its JavaScript path and precompile assets automatically. Both Propshaft and Sprockets hosts can mount RailsNexus without changing the host asset manifest.
+The engine registers and precompiles its fingerprintable JavaScript and CSS assets automatically. Both Propshaft and Sprockets hosts can mount RailsNexus without changing the host asset manifest.
 
 The entry point is `rails_nexus/application`; it does not replace or depend on the host app's `application` entry point. Turbo and Stimulus are served locally from their Rails gems rather than from a CDN.
 
@@ -384,7 +401,17 @@ Four controllers are included and registered by the engine's entry point:
 
 The engine creates a `rails_nexus_exceptions` table with columns for exception class, controller/action, message, backtrace, request, environment, user information, user agent, remote IP, and timestamps.
 
-Exception records can contain secrets. Apply your normal database encryption, retention, backup, and access-control policies.
+RailsNexus applies Rails' configured parameter filters plus built-in password, token, authorization, cookie, session, and secret filters before persistence. Application-provided free-form messages can still contain sensitive data, so apply your normal database encryption, retention, backup, and access-control policies.
+
+Analytics time grouping works on SQLite, PostgreSQL, and MySQL/MariaDB. Row counts work on all three; physical table-size and server uptime/connection metrics are displayed only where the adapter exposes them safely, and otherwise show as unavailable.
+
+## Backup safety and compatibility
+
+Backup commands are executed without a shell and validate database identifiers, ports, hosts, paths, remote destinations, and MySQL options. Database and encryption passwords are passed through protected environment variables or mode-`0600` temporary files rather than command-line arguments. Free-form notification shell commands are intentionally unsupported; configure a direct executable and arguments instead.
+
+## Security
+
+The dashboard denies every request unless `auth_block` returns a truthy value. Webhooks use HTTPS by default, resolve and pin public destinations, reject redirects and private/reserved networks, and support explicit host allow/deny lists. See [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
 ## Generators
 

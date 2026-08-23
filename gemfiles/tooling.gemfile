@@ -1,0 +1,10 @@
+source "https://rubygems.org"
+
+gemspec path: ".."
+gem "rails", "~> 8.1.0"
+gem "rack", ">= 3.2"
+gem "sqlite3", ">= 2.1"
+gem "sprockets-rails", "~> 3.4"
+gem "rubocop", "~> 1.85", require: false
+gem "brakeman", "~> 8.0", require: false
+gem "bundler-audit", "~> 0.9", require: false

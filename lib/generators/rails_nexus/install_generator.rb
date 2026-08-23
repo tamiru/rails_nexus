@@ -35,7 +35,7 @@ module RailsNexus
           content = File.read(destination_controller)
           unless content.include?("log_exception_handler")
             inject_into_class app_controller, "ApplicationController" do
-              "\n  rescue_from Exception, with: :log_exception_handler\n"
+              "\n  rescue_from StandardError, with: :log_exception_handler\n"
             end
           end
         end

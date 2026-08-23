@@ -2,6 +2,7 @@
 
 module RailsNexus
   module LoggedExceptionsHelper
+    include SourceCodeHelper
     def pretty_exception_date(exception)
       if RailsNexus.configuration.date_format
         return exception.created_at.strftime(RailsNexus.configuration.date_format)
@@ -186,58 +187,12 @@ module RailsNexus
 
     # Read source code snippet around a file:line
     def read_source_snippet(file_path, line_number, context: 5)
-      return nil unless file_path.present? && line_number.present?
-      return nil unless File.exist?(file_path)
-
-      lines = File.readlines(file_path)
-      start_line = [line_number - context, 0].max
-      end_line = [line_number + context, lines.length - 1].min
-
-      snippet_lines = (start_line..end_line).map do |i|
-        {
-          number: i + 1,
-          content: lines[i]&.rstrip,
-          highlighted: (i + 1) == line_number
-        }
-      end
-
-      { lines: snippet_lines, start: start_line + 1, end: end_line + 1 }
-    rescue StandardError
-      nil
+      super(file_path, line_number, context_lines: context)
     end
 
     # Get git blame for a file:line range
-    def git_blame_for_line(file_path, line_number, context: 2)
-      return nil unless file_path.present? && line_number.present?
-      return nil unless File.exist?(file_path)
-
-      start_line = [line_number - context, 1].max
-      end_line = line_number + context
-
-      result = `git blame -L #{start_line},#{end_line} --porcelain #{file_path} 2>/dev/null`
-      return nil unless $?.success?
-
-      blame_data = {}
-      current_sha = nil
-
-      result.each_line do |line|
-        if line =~ /^([0-9a-f]{40})\s+(\d+)\s+(\d+)/
-          current_sha = $1
-          line_num = $2.to_i
-          blame_data[line_num] = { sha: current_sha&.slice(0, 7) } if line_num == line_number
-        elsif line =~ /^author\s+(.+)/
-          blame_data.each_value { |v| v[:author] = $1.strip if v[:sha] == current_sha&.slice(0, 7) && v[:author].nil? }
-        elsif line =~ /^author-time\s+(\d+)/
-          time = Time.at($1.to_i)
-          blame_data.each_value { |v| v[:date] = time.strftime("%Y-%m-%d") if v[:sha] == current_sha&.slice(0, 7) && v[:date].nil? }
-        elsif line =~ /^summary\s+(.+)/
-          blame_data.each_value { |v| v[:message] = $1.strip if v[:sha] == current_sha&.slice(0, 7) && v[:message].nil? }
-        end
-      end
-
-      blame_data[line_number]
-    rescue StandardError
-      nil
+    def git_blame_for_line(file_path, line_number, **_options)
+      super(file_path, line_number)
     end
 
     # Parse backtrace line into file path and line number

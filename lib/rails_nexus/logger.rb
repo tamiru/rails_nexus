@@ -170,18 +170,7 @@ module RailsNexus
       end
 
       def filter_params(params)
-        return {} unless params.is_a?(Hash)
-
-        rails_filters = Rails.application.config.filter_parameters
-        params.each_with_object({}) do |(key, value), result|
-          if rails_filters.any? { |f| key.to_s.include?(f.to_s) }
-            result[key] = "[FILTERED]"
-          elsif value.is_a?(Hash)
-            result[key] = filter_params(value)
-          else
-            result[key] = value
-          end
-        end
+        RailsNexus.filter_sensitive_data(params)
       end
     end
   end

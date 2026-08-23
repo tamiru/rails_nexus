@@ -2,8 +2,6 @@
 
 module RailsNexus
   class AnalyticsController < ApplicationController
-    before_action :verify_access
-
     def index
       @time_range = parse_time_range
       @error_trends = collect_error_trends
@@ -17,14 +15,6 @@ module RailsNexus
     end
 
     private
-
-    def verify_access
-      config = RailsNexus.configuration
-      return if config.auth_block.nil?
-      unless config.auth_block&.call(self)
-        render plain: "Forbidden", status: :forbidden
-      end
-    end
 
     def parse_time_range
       days = params[:days]&.to_i || 7
@@ -155,21 +145,21 @@ module RailsNexus
     end
 
     def correlation_by_time_of_day
-      (0..23).map do |hour|
-        count = LoggedException.where(created_at: @time_range)
-          .where("HOUR(created_at) = ?", hour)
-          .count
-        { hour: hour, count: count }
-      end
+      expression = RailsNexus::DatabaseAdapter.time_component_expression(component: :hour)
+      counts = LoggedException.where(created_at: @time_range).group(Arel.sql(expression)).count
+      (0..23).map { |hour| { hour: hour, count: counts[hour] || counts[hour.to_s] || 0 } }
+    rescue NotImplementedError
+      (0..23).map { |hour| { hour: hour, count: nil } }
     end
 
     def correlation_by_day_of_week
-      %w[Mon Tue Wed Thu Fri Sat Sun].each_with_index.map do |day, index|
-        count = LoggedException.where(created_at: @time_range)
-          .where("DAYOFWEEK(created_at) = ?", index + 1)
-          .count
-        { day: day, count: count }
+      expression = RailsNexus::DatabaseAdapter.time_component_expression(component: :weekday)
+      counts = LoggedException.where(created_at: @time_range).group(Arel.sql(expression)).count
+      %w[Mon Tue Wed Thu Fri Sat Sun].zip([1, 2, 3, 4, 5, 6, 0]).map do |day, weekday|
+        { day: day, count: counts[weekday] || counts[weekday.to_s] || 0 }
       end
+    rescue NotImplementedError
+      %w[Mon Tue Wed Thu Fri Sat Sun].map { |day| { day: day, count: nil } }
     end
 
     def find_co_occurring_errors
@@ -274,13 +264,10 @@ module RailsNexus
     end
 
     def baseline_health_status
-      baseline = calculate_baseline
       anomalies = detect_anomalies
       spikes = detect_spikes
 
-      if spikes[:detected] && spikes[:severity] == "critical"
-        "critical"
-      elsif anomalies.any? { |a| a[:severity] == "critical" }
+      if (spikes[:detected] && spikes[:severity] == "critical") || anomalies.any? { |a| a[:severity] == "critical" }
         "critical"
       elsif anomalies.any?
         "warning"
@@ -350,7 +337,7 @@ module RailsNexus
 
         24.times do |hour|
           count = LoggedException.where(
-            created_at: date.beginning_of_day + hour.hours..date.beginning_of_day + (hour + 1).hours
+            created_at: (date.beginning_of_day + hour.hours)..(date.beginning_of_day + (hour + 1).hours)
           ).count
           heatmap[day_name][hour] = count
         end
