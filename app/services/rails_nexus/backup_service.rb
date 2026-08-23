@@ -1,327 +1,176 @@
 # frozen_string_literal: true
 
-require "yaml"
-
 module RailsNexus
   class BackupService
-    attr_reader :config_path, :models_path, :dump_path
-
-    CONFIG_FILE = "rails_nexus_backup.yml"
+    attr_reader :dump_path
 
     def initialize
-      saved = self.class.load_config
-      @config_path = saved[:config_path] || RailsNexus.configuration.backup_config_path || default_config_path
-      @models_path = saved[:models_path] || RailsNexus.configuration.backup_models_path || default_models_path
-      @dump_path = saved[:dump_path] || RailsNexus.configuration.backup_dump_path || default_dump_path
+      @dump_path = RailsNexus.configuration.backup_dump_path || default_dump_path
     end
 
-    # Load saved config from YAML file
-    def self.load_config
-      path = config_file_path
-      return default_config unless File.exist?(path)
-
-      data = YAML.safe_load_file(path, permitted_classes: [Symbol, Date, Time]) || {}
-      default_config.merge(data.transform_keys(&:to_sym))
-    rescue StandardError
-      default_config
-    end
-
-    # Save config to YAML file
-    def self.save_config(params)
-      config = load_config
-
-      # Merge new params
-      params.each do |key, value|
-        config[key.to_sym] = value
-      end
-
-      # Ensure directory exists
-      dir = File.dirname(config_file_path)
-      FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
-
-      # Write YAML
-      File.write(config_file_path, config.to_yaml)
-
-      { success: true }
-    rescue StandardError => e
-      { success: false, error: e.message }
-    end
-
-    # Delete saved config
-    def self.reset_config
-      File.delete(config_file_path) if File.exist?(config_file_path)
-      { success: true }
-    rescue StandardError => e
-      { success: false, error: e.message }
-    end
-
-    # Check if backup gem is configured
-    def configured?
-      File.exist?(@config_path) && Dir.exist?(@models_path)
-    end
-
-    # Get all backup models
-    def models
-      return [] unless configured?
-
-      Dir.glob(File.join(@models_path, "*.rb")).map do |path|
-        parse_model_file(path)
-      end.compact
-    end
-
-    # Get backup files
-    def backup_files
-      return [] unless @dump_path && Dir.exist?(@dump_path)
-
-      Dir.glob(File.join(@dump_path, "*")).select { |f| File.file?(f) }.map do |path|
-        {
-          name: File.basename(path),
-          path: path,
-          size: File.size(path),
-          size_human: human_size(File.size(path)),
-          created_at: File.mtime(path),
-          age_hours: ((Time.current - File.mtime(path)) / 3600).round(1),
-          encrypted: path.end_with?(".enc"),
-          compressed: path.end_with?(".gz") || path.end_with?(".tar.gz")
-        }
-      end.sort_by { |f| -f[:created_at].to_i }
-    end
-
-    # Get backup summary stats
-    def summary
-      files = backup_files
-      {
-        total_files: files.size,
-        total_size: files.sum { |f| f[:size] },
-        total_size_human: human_size(files.sum { |f| f[:size] }),
-        last_backup: files.first&.dig(:created_at),
-        last_backup_age_hours: files.first&.dig(:age_hours),
-        oldest_backup: files.last&.dig(:created_at),
-        models_count: models.size,
-        healthy: last_backup_healthy?,
-        alerts: generate_alerts
-      }
-    end
-
-    # Get cron schedule from whenever config
-    def cron_schedule
-      schedule_file = File.join(File.dirname(@config_path), "config", "schedule.rb")
-      return nil unless File.exist?(schedule_file)
-
-      content = File.read(schedule_file)
-      {
-        file: schedule_file,
-        entries: parse_schedule(content),
-        raw: content
-      }
-    end
-
-    # Run a backup model and record it in the table
+    # Run a backup for a model and record it in the table
     def trigger_backup(model_name)
-      return { success: false, error: "Backup not configured" } unless configured?
-      return { success: false, error: "Invalid model: #{model_name}" } unless valid_model?(model_name)
-
-      # Record the backup attempt in the table
       record = RailsNexus::Backup.start!(model_name: model_name, triggered_by: "ui")
 
-      runner = find_runner_script
-      unless runner
-        record.fail!(error_message: "Runner script not found")
-        return { success: false, error: "Runner script not found" }
-      end
+      begin
+        FileUtils.mkdir_p(@dump_path)
 
-      log_file = File.join(File.dirname(@config_path), "log", "cron.log")
-      error_log = File.join(File.dirname(@config_path), "log", "cron-error.log")
+        timestamp = Time.current.strftime("%Y%m%d_%H%M%S")
+        filename = "#{model_name}_#{timestamp}.sql"
+        file_path = File.join(@dump_path, filename)
 
-      command = "bash #{runner} #{model_name} >> #{log_file} 2>> #{error_log}"
-      pid = Process.spawn(command)
-      Process.detach(pid)
+        # Detect database adapter and run appropriate dump
+        result = run_dump(model_name, file_path)
 
-      { success: true, pid: pid, model: model_name, record_id: record.id }
-    end
-
-    # Scan backup filesystem and create/update table records
-    # Called periodically or manually to keep the table in sync
-    def scan_and_record!
-      files = backup_files
-      created = 0
-      files.each do |file|
-        # Skip if we already have a record for this exact file path + model
-        model_name = guess_model_from_filename(file[:name])
-        next unless model_name
-
-        existing = RailsNexus::Backup.where(
-          model_name: model_name,
-          file_path: file[:path]
-        ).first
-
-        unless existing
-          RailsNexus::Backup.create!(
-            model_name: model_name,
-            status: "success",
-            file_path: file[:path],
-            file_size: file[:size],
-            started_at: file[:created_at],
-            completed_at: file[:created_at],
-            triggered_by: "scan"
-          )
-          created += 1
+        if result[:success]
+          file_size = File.exist?(file_path) ? File.size(file_path) : 0
+          record.succeed!(file_path: file_path, file_size: file_size)
+          { success: true, record_id: record.id, file_path: file_path }
+        else
+          record.fail!(error_message: result[:error])
+          # Clean up failed file
+          File.delete(file_path) if File.exist?(file_path)
+          { success: false, error: result[:error], record_id: record.id }
         end
+      rescue StandardError => e
+        record.fail!(error_message: e.message)
+        { success: false, error: e.message, record_id: record.id }
       end
-      created
     end
 
-    # Get backup records from the table, enriched with filesystem data
-    def backup_records
-      RailsNexus::Backup.order(started_at: :desc).limit(50)
+    # Get backup records from the table
+    def backup_records(limit: 50)
+      RailsNexus::Backup.order(started_at: :desc).limit(limit)
     end
 
-    # Get backup health status
+    # Get summary stats from the table
+    def summary
+      recent = RailsNexus::Backup.where("started_at >= ?", 7.days.ago)
+      {
+        total: RailsNexus::Backup.count,
+        successful: RailsNexus::Backup.successful.count,
+        failed: RailsNexus::Backup.failed.count,
+        recent_count: recent.count,
+        recent_success: recent.successful.count,
+        recent_failed: recent.failed.count,
+        total_size: RailsNexus::Backup.sum(:file_size).to_i,
+        total_size_human: human_size(RailsNexus::Backup.sum(:file_size).to_i),
+        last_backup: RailsNexus::Backup.successful.latest_first.first
+      }
+    end
+
+    # Get health status based on table records
     def health_status
-      return { status: "not_configured", message: "Backup not configured" } unless configured?
+      last = RailsNexus::Backup.successful.latest_first.first
+      threshold = RailsNexus.configuration.backup_alert_threshold_hours || 24
 
-      summary_data = summary
-      threshold = saved_config[:alert_threshold_hours]&.to_i || RailsNexus.configuration.backup_alert_threshold_hours || 24
-
-      if summary_data[:last_backup].nil?
-        { status: "warning", message: "No backups found", details: summary_data }
-      elsif summary_data[:last_backup_age_hours] > threshold * 2
-        { status: "critical", message: "Last backup #{summary_data[:last_backup_age_hours]}h ago (>#{threshold * 2}h)", details: summary_data }
-      elsif summary_data[:last_backup_age_hours] > threshold
-        { status: "warning", message: "Last backup #{summary_data[:last_backup_age_hours]}h ago (>#{threshold}h)", details: summary_data }
+      if last.nil?
+        { status: "warning", message: "No backups recorded yet" }
+      elsif last.duration && last.duration > threshold * 3600
+        { status: "critical", message: "Last backup #{((Time.current - last.started_at) / 3600).round(1)}h ago" }
       else
-        { status: "healthy", message: "Last backup #{summary_data[:last_backup_age_hours]}h ago", details: summary_data }
+        { status: "healthy", message: "Last backup #{last.model_name} — #{last.duration_human}" }
       end
     end
 
-    # Get saved config
-    def saved_config
-      @saved_config ||= self.class.load_config
+    # Cleanup old backup records and files
+    def cleanup!(retention_days: nil)
+      days = retention_days || RailsNexus.configuration.backup_alert_threshold_hours&.div(24) || 30
+      old_records = RailsNexus::Backup.where("started_at < ?", days.days.ago)
+
+      # Delete files first
+      old_records.find_each do |record|
+        File.delete(record.file_path) if record.file_path && File.exist?(record.file_path)
+      end
+
+      count = old_records.delete_all
+      { deleted: count }
     end
 
     private
-
-    def self.config_file_path
-      Rails.root.join("config", CONFIG_FILE)
-    end
-
-    def self.default_config
-      {
-        enabled: true,
-        config_path: nil,
-        models_path: nil,
-        dump_path: nil,
-        notify_command: nil,
-        alert_threshold_hours: 24,
-        rsync_host: nil,
-        rsync_port: 22,
-        rsync_user: nil,
-        rsync_path: nil,
-        encrypt_password: nil,
-        auto_cleanup_days: 30
-      }
-    end
-
-    def default_config_path
-      Rails.root.join("config", "backup", "config.rb").to_s
-    end
-
-    def default_models_path
-      Rails.root.join("config", "backup", "models").to_s
-    end
 
     def default_dump_path
       Rails.root.join("storage", "rails_nexus", "backups").to_s
     end
 
-    def parse_model_file(path)
-      content = File.read(path)
-      name_match = content.match(/Model\.new\(:(\w+)/)
-      desc_match = content.match(/'([^']+)'/)
+    # Detect adapter and run appropriate dump command
+    def run_dump(model_name, file_path)
+      config = ActiveRecord::Base.connection_db_config.configuration_hash
+      adapter = config[:adapter]
 
-      return nil unless name_match
-
-      {
-        name: name_match[1],
-        description: desc_match ? desc_match[1] : name_match[1],
-        file: path,
-        has_mysql: content.include?("database MySQL"),
-        has_local: content.include?("store_with Local"),
-        has_rsync: content.include?("sync_with RSync"),
-        has_encryption: content.include?("encrypt_with OpenSSL"),
-        has_compression: content.include?("compress_with Gzip"),
-        skip_tables: content.scan(/skip_tables\s*=\s*\[([^\]]+)\]/).flatten.first,
-        keep_count: content.scan(/keep\s*=\s*(\d+)/).flatten.first&.to_i
-      }
-    end
-
-    def parse_schedule(content)
-      entries = []
-      content.scan(/every\s+([^,]+)(?:,\s*at:\s*"([^"]+)")?\s+do\s+command\s+"([^"]+)"/) do |match|
-        entries << {
-          frequency: match[0].strip,
-          time: match[1],
-          command: match[2]
-        }
+      case adapter
+      when /sqlite/
+        run_sqlite_dump(config, file_path)
+      when /mysql/
+        run_mysql_dump(config, file_path)
+      when /postgresql/, /postgres/
+        run_postgresql_dump(config, file_path)
+      else
+        { success: false, error: "Unsupported adapter: #{adapter}" }
       end
-      entries
     end
 
-    def find_runner_script
-      runner = File.join(File.dirname(@config_path), "bin", "run-backup")
-      runner if File.exist?(runner)
-    end
+    def run_sqlite_dump(config, file_path)
+      db_path = config[:database]
+      return { success: false, error: "No database path configured" } unless db_path
 
-    def valid_model?(name)
-      models.any? { |m| m[:name] == name }
-    end
-
-    def last_backup_healthy?
-      files = backup_files
-      return false if files.empty?
-
-      threshold = saved_config[:alert_threshold_hours]&.to_i || RailsNexus.configuration.backup_alert_threshold_hours || 24
-      files.first[:age_hours] <= threshold
-    end
-
-    def generate_alerts
-      alerts = []
-      files = backup_files
-      threshold = saved_config[:alert_threshold_hours]&.to_i || RailsNexus.configuration.backup_alert_threshold_hours || 24
-
-      if files.empty?
-        alerts << { level: "warning", message: "No backup files found" }
-      elsif files.first[:age_hours] > threshold
-        alerts << { level: "critical", message: "No backup in #{files.first[:age_hours]}h (threshold: #{threshold}h)" }
+      # SQLite: .dump produces SQL output
+      output = `sqlite3 "#{db_path}" .dump 2>&1`
+      if $?.success?
+        File.write(file_path, output)
+        { success: true }
+      else
+        { success: false, error: "sqlite3 dump failed: #{output}" }
       end
+    end
 
-      # Check for old backups consuming space
-      old_files = files.select { |f| f[:age_hours] > 720 } # 30 days
-      if old_files.size > 10
-        alerts << { level: "info", message: "#{old_files.size} backups older than 30 days (#{human_size(old_files.sum { |f| f[:size] })})" }
+    def run_mysql_dump(config, file_path)
+      cmd = [
+        "mysqldump",
+        "--user=#{config[:username] || 'root'}",
+        config[:password] ? "--password=#{config[:password]}" : nil,
+        "--host=#{config[:host] || 'localhost'}",
+        "--port=#{config[:port] || 3306}",
+        "--result-file=#{file_path}",
+        config[:database]
+      ].compact.join(" ")
+
+      output = `#{cmd} 2>&1`
+      if $?.success?
+        { success: true }
+      else
+        { success: false, error: "mysqldump failed: #{output}" }
       end
+    end
 
-      alerts
+    def run_postgresql_dump(config, file_path)
+      cmd = [
+        "pg_dump",
+        "--username=#{config[:username] || 'postgres'}",
+        config[:host] ? "--host=#{config[:host]}" : nil,
+        config[:port] ? "--port=#{config[:port]}" : nil,
+        "--file=#{file_path}",
+        config[:database]
+      ].compact.join(" ")
+
+      env = config[:password] ? { "PGPASSWORD" => config[:password].to_s } : {}
+
+      output = IO.capture2e(env, cmd)
+      if output.last.success?
+        { success: true }
+      else
+        { success: false, error: "pg_dump failed: #{output.first}" }
+      end
     end
 
     def human_size(bytes)
-      return "0 B" if bytes == 0
+      return "0 B" if bytes.zero?
 
       units = %w[B KB MB GB TB]
       exp = (Math.log(bytes) / Math.log(1024)).to_i
       exp = units.size - 1 if exp >= units.size
 
       "%.1f %s" % [bytes.to_f / (1024**exp), units[exp]]
-    end
-
-    # Try to guess which backup model a file belongs to from its filename
-    def guess_model_from_filename(filename)
-      # Common patterns: daily_backup_2026-08-23.tar.gz, full_backup.tar.gz, etc.
-      models.map { |m| m[:name] }.each do |name|
-        return name if filename.downcase.include?(name.downcase)
-      end
-      # Fallback: use first model if only one exists
-      models.first&.dig(:name)
     end
   end
 end

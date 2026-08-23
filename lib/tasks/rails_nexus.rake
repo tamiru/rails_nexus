@@ -228,12 +228,11 @@ namespace :rails_nexus do
     puts "✓ Deleted #{count} webhook delivery records older than #{days} days"
   end
 
-  desc "Scan backup filesystem and record new files in the database"
-  task backup_scan: :environment do
+  desc "Clean up old backup records and files (default: 30 days)"
+  task :backup_cleanup, [:days] => :environment do |_t, args|
+    days = (args[:days] || 30).to_i
     service = RailsNexus::BackupService.new
-    created = service.scan_and_record!
-    puts "✓ Scanned backup filesystem — #{created} new records created"
-    total = RailsNexus::Backup.count
-    puts "  Total backup records: #{total}"
+    result = service.cleanup!(retention_days: days)
+    puts "✓ Deleted #{result[:deleted]} backup records older than #{days} days"
   end
 end
