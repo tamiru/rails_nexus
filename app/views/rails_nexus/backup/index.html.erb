@@ -1,7 +1,6 @@
-<% page_title t(".title", default: "Backup Management") %>
+<% page_title "Backup Management" %>
 
 <div class="space-y-6">
-  <%# ─── Header ──────────────────────────────────────────────── %>
   <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
     <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
     <span class="rn-breadcrumb-sep">/</span>
@@ -9,117 +8,95 @@
   </nav>
 
   <div class="flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <svg class="w-6 h-6" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
-      </svg>
-      <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup Management</h1>
-    </div>
+    <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup Management</h1>
+    <%= link_to "New Config", new_backup_path, class: "rn-btn rn-btn-primary" %>
   </div>
 
-  <%# ─── Health Status ───────────────────────────────────────── %>
-  <div class="rn-card" style="border-left: 3px solid <%= @health[:status] == 'healthy' ? 'var(--rn-success)' : @health[:status] == 'warning' ? 'var(--rn-warning)' : 'var(--rn-danger)' %>">
-    <div class="p-4 flex items-center gap-3">
-      <span class="w-3 h-3 rounded-full" style="background: <%= @health[:status] == 'healthy' ? 'var(--rn-success)' : @health[:status] == 'warning' ? 'var(--rn-warning)' : 'var(--rn-danger)' %>"></span>
-      <div>
-        <span class="text-sm font-semibold" style="color: var(--rn-text)"><%= @health[:message] %></span>
-      </div>
-    </div>
-  </div>
-
-  <%# ─── Summary Stats ───────────────────────────────────────── %>
+  <%# ─── Stats ──────────────────────────────────────────────── %>
   <div class="rn-stats">
     <div class="rn-stat">
+      <span class="rn-stat-label">Configs</span>
+      <span class="rn-stat-value"><%= @stats[:total_configs] %></span>
+      <span class="rn-stat-change"><%= @stats[:enabled_configs] %> enabled</span>
+    </div>
+    <div class="rn-stat">
       <span class="rn-stat-label">Total Backups</span>
-      <span class="rn-stat-value"><%= @summary[:total] %></span>
-      <span class="rn-stat-change"><%= @summary[:total_size_human] %> total</span>
+      <span class="rn-stat-value"><%= @stats[:total_backups] %></span>
+      <span class="rn-stat-change">All time</span>
     </div>
     <div class="rn-stat">
       <span class="rn-stat-label">Successful</span>
-      <span class="rn-stat-value" style="color: var(--rn-success)"><%= @summary[:successful] %></span>
+      <span class="rn-stat-value" style="color: var(--rn-success)"><%= @stats[:successful] %></span>
       <span class="rn-stat-change">All time</span>
     </div>
     <div class="rn-stat">
       <span class="rn-stat-label">Failed</span>
-      <span class="rn-stat-value" style="color: var(--rn-danger)"><%= @summary[:failed] %></span>
+      <span class="rn-stat-value" style="color: var(--rn-danger)"><%= @stats[:failed] %></span>
       <span class="rn-stat-change">All time</span>
     </div>
-    <div class="rn-stat">
-      <span class="rn-stat-label">Last 7 Days</span>
-      <span class="rn-stat-value"><%= @summary[:recent_count] %></span>
-      <span class="rn-stat-change"><%= @summary[:recent_success] %> ok, <%= @summary[:recent_failed] %> failed</span>
-    </div>
   </div>
 
-  <%# ─── Trigger Backup ──────────────────────────────────────── %>
+  <%# ─── Backup Configs ─────────────────────────────────────── %>
   <div class="rn-card">
     <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
-      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Run Backup</h2>
-      <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Trigger a database dump. The record will be saved to the table.</p>
-    </div>
-    <div class="p-4 flex gap-3">
-      <% %w[primary full sync].each do |model| %>
-        <%= button_to model.titleize, backup_trigger_path(model: model),
-          method: :post,
-          class: "rn-btn rn-btn-primary rn-btn-sm",
-          data: { turbo_confirm: "Run #{model} backup now?" } %>
-      <% end %>
-    </div>
-  </div>
-
-  <%# ─── Recent Backups Table ────────────────────────────────── %>
-  <div class="rn-card">
-    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
-      <div class="flex items-center gap-2">
-        <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Backup History</h2>
-      </div>
-      <p class="text-xs mt-1" style="color: var(--rn-text-muted)">All backup runs recorded in the database</p>
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Backup Configurations</h2>
+      <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Configure and run database backups</p>
     </div>
 
-    <% if @records.any? %>
+    <% if @configs.any? %>
       <div class="rn-table-wrap">
         <table class="rn-table">
           <thead>
             <tr>
-              <th>Model</th>
+              <th>Name</th>
+              <th>Adapter</th>
+              <th>Database</th>
+              <th>Storage</th>
+              <th>Schedule</th>
               <th>Status</th>
-              <th>Size</th>
-              <th>Duration</th>
-              <th>Triggered By</th>
-              <th>Time</th>
-              <th></th>
+              <th style="text-align: right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <% @records.each do |record| %>
+            <% @configs.each do |config| %>
               <tr>
                 <td>
-                  <span class="font-medium" style="color: var(--rn-text)"><%= record.model_name %></span>
-                </td>
-                <td>
-                  <span class="rn-badge rn-badge-<%= record.status == 'success' ? 'success' : record.status == 'failed' ? 'danger' : 'warning' %>">
-                    <%= record.status.capitalize %>
-                  </span>
-                </td>
-                <td>
-                  <span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.file_size ? number_to_human_size(record.file_size) : "—" %></span>
-                </td>
-                <td>
-                  <span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.duration ? "#{record.duration.round(1)}s" : "—" %></span>
-                </td>
-                <td>
-                  <span class="text-xs" style="color: var(--rn-text-muted)"><%= record.triggered_by || "—" %></span>
-                </td>
-                <td>
-                  <span class="text-xs" style="color: var(--rn-text-muted)"><%= record.started_at ? time_ago_in_words(record.started_at) + " ago" : "—" %></span>
-                </td>
-                <td>
-                  <% if record.error_message.present? %>
-                    <span class="text-xs" style="color: var(--rn-danger)" title="<%= record.error_message %>">⚠</span>
+                  <span class="font-medium" style="color: var(--rn-text)"><%= config.name %></span>
+                  <% if config.description.present? %>
+                    <br><span class="text-xs" style="color: var(--rn-text-muted)"><%= config.description %></span>
                   <% end %>
+                </td>
+                <td><span class="rn-badge rn-badge-info"><%= config.adapter.upcase %></span></td>
+                <td><span class="text-xs rn-mono" style="color: var(--rn-text-secondary)"><%= config.database_name %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= config.storage_path %> (keep <%= config.keep_count %>)</span></td>
+                <td>
+                  <% if config.schedule_cron.present? %>
+                    <span class="rn-badge rn-badge-warning"><%= config.schedule_cron %></span>
+                  <% else %>
+                    <span class="text-xs" style="color: var(--rn-text-muted)">Manual</span>
+                  <% end %>
+                </td>
+                <td>
+                  <span class="rn-badge <%= config.enabled? ? 'rn-badge-success' : 'rn-badge-muted' %>">
+                    <%= config.enabled? ? 'Enabled' : 'Disabled' %>
+                  </span>
+                  <% if config.encrypt? %><span class="rn-badge rn-badge-warning">Encrypted</span><% end %>
+                  <% if config.rsync_enabled? %><span class="rn-badge rn-badge-info">RSync</span><% end %>
+                </td>
+                <td style="text-align: right">
+                  <div class="flex items-center justify-end gap-1">
+                    <%= button_to "Run", backup_trigger_path(config),
+                      method: :post,
+                      class: "rn-btn rn-btn-primary rn-btn-xs",
+                      data: { turbo_confirm: "Run #{config.name} backup now?" } %>
+                    <%= link_to "History", backup_config_history_path(config), class: "rn-btn rn-btn-ghost rn-btn-xs" %>
+                    <%= link_to "Edit", edit_backup_path(config), class: "rn-btn rn-btn-ghost rn-btn-xs" %>
+                    <%= button_to "Delete", backup_destroy_path(config),
+                      method: :delete,
+                      class: "rn-btn rn-btn-ghost rn-btn-xs",
+                      style: "color: var(--rn-danger)",
+                      data: { turbo_confirm: "Delete config '#{config.name}'?" } %>
+                  </div>
                 </td>
               </tr>
             <% end %>
@@ -128,8 +105,51 @@
       </div>
     <% else %>
       <div class="p-8 text-center">
-        <p class="text-sm" style="color: var(--rn-text-muted)">No backups recorded yet. Run a backup above to get started.</p>
+        <p class="text-sm" style="color: var(--rn-text-muted)">No backup configurations yet.</p>
+        <%= link_to "Create your first config", new_backup_path, class: "mt-3 inline-block text-xs font-medium", style: "color: var(--rn-primary)" %>
       </div>
     <% end %>
   </div>
+
+  <%# ─── Recent Backups ─────────────────────────────────────── %>
+  <% if @records.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Recent Backups</h2>
+          <%= link_to "View All", backup_history_path, class: "text-xs font-medium", style: "color: var(--rn-primary)" %>
+        </div>
+      </div>
+      <div class="rn-table-wrap">
+        <table class="rn-table">
+          <thead>
+            <tr>
+              <th>Config</th>
+              <th>Status</th>
+              <th>Size</th>
+              <th>Duration</th>
+              <th>Triggered By</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @records.each do |record| %>
+              <tr>
+                <td><span class="font-medium" style="color: var(--rn-text)"><%= record.model_name %></span></td>
+                <td>
+                  <span class="rn-badge rn-badge-<%= record.status == 'success' ? 'success' : record.status == 'failed' ? 'danger' : 'warning' %>">
+                    <%= record.status.capitalize %>
+                  </span>
+                </td>
+                <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.file_size ? number_to_human_size(record.file_size) : "—" %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.duration ? "#{record.duration.round(1)}s" : "—" %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= record.triggered_by || "—" %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= record.started_at ? time_ago_in_words(record.started_at) + " ago" : "—" %></span></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
 </div>
