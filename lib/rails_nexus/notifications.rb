@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "uri"
 require "json"
+require "rails_nexus/webhook_client"
 
 module RailsNexus
   module Notifications
@@ -28,28 +27,36 @@ module RailsNexus
         config.webhooks.each do |url|
           deliver_webhook(url, payload, config)
         rescue StandardError => e
-          Rails.logger.error("[RailsNexus] Webhook failed for #{url}: #{e.message}")
-          log_webhook_delivery(url: url, payload: payload, error: e.message, event_type: "exception.logged")
+          Rails.logger.error("[RailsNexus] Webhook delivery failed: #{e.class}")
+          log_webhook_delivery(
+            url: RailsNexus::WebhookClient.redacted_url(url),
+            payload: payload,
+            error: "Webhook delivery failed",
+            event_type: "exception.logged"
+          )
         end
       end
 
       def deliver_webhook(url, payload, config)
-        uri = URI(url)
+        logged_url = RailsNexus::WebhookClient.redacted_url(url)
+        result = RailsNexus::WebhookClient.deliver(
+          url: url,
+          payload: payload,
+          headers: config.webhook_headers,
+          timeout: config.webhook_timeout
+        )
 
-        http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl = uri.scheme == "https"
-        http.open_timeout = config.webhook_timeout
-        http.read_timeout = config.webhook_timeout
-
-        request = Net::HTTP::Post.new(uri)
-        request["Content-Type"] = "application/json"
-        config.webhook_headers.each { |k, v| request[k] = v }
-        request.body = payload.to_json
-
-        response = http.request(request)
-
-        unless response.is_a?(Net::HTTPSuccess)
-          Rails.logger.error("[RailsNexus] Webhook #{url} returned #{response.code}")
+        if result[:success]
+          log_webhook_delivery(
+            url: logged_url,
+            payload: payload,
+            status_code: result[:status_code],
+            response_body: result[:body],
+            event_type: "exception.logged"
+          )
+        else
+          Rails.logger.error("[RailsNexus] Webhook delivery failed: #{result[:error]}")
+          log_webhook_delivery(url: logged_url, payload: payload, error: result[:error], event_type: "exception.logged")
         end
       end
 

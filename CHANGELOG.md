@@ -5,23 +5,33 @@ All notable changes to RailsNexus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.1] - 2026-08-23
 
 ### Added
+- **Security controls** — Global fail-closed dashboard authorization, webhook destination policy controls, safe source browsing, and recursive sensitive-parameter filtering.
+- **Database compatibility CI** — SQLite, PostgreSQL, and MySQL/MariaDB coverage plus Ruby 3.2–4.0 and Rails 8.0–8.1 test matrices.
+- **Release security** — Private vulnerability reporting guidance, dependency updates, static analysis, dependency auditing, and MFA release metadata.
 - **Advanced exception filtering** — Ransack filters now cover exception type, source, message/class/source search, platform, priority, workflow status, assignee, time range, and minimum occurrence count.
 - **Sortable exception table** — Exception, platform, source, message, occurrence count, workflow priority, and last-seen columns can be sorted without leaving the Turbo Frame.
 
 ### Changed
+- **Exception boundary** — New installations capture `StandardError` while fatal process and VM exceptions retain normal Ruby/Rails behavior.
+- **Frontend distribution** — RailsNexus now ships a fingerprintable prebuilt bundle and no longer requires or modifies Importmap.
+- **Portable analytics** — Time grouping is bounded and isolated for SQLite, PostgreSQL, and MySQL/MariaDB.
 - **Pagy pagination** — Replaced WillPaginate with Pagy for exception and cron-job pagination.
 - **Compact exception table** — The message column is constrained and ellipsized with the complete message available as a tooltip; source, fingerprint, workflow, assignment, and occurrence metadata are presented in a denser layout.
 - **Occurrence performance** — The exception table uses each fingerprint's stored `occurrence_count`, removing the per-row count query.
 
 ### Fixed
+- **Backup process safety** — External backup tools receive validated argument arrays and secrets through protected environment/configuration channels.
+- **Webhook request safety** — Webhook delivery validates schemes, DNS results, network ranges, redirects, and host policy before connecting.
+- **Source viewer safety** — Canonical path containment and non-shell Git execution prevent path and command injection.
+- **Legacy namespace boot compatibility** — Applications that still include `RailsOps::ExceptionLoggable` can boot while migrating to `RailsNexus::ExceptionLoggable`.
 - **Unified exception query** — Legacy and Ransack filters now compose in one relation, platform filtering works independently of source filtering, and filtered bulk deletion deletes the same result set shown in the table.
 - **Filter pills** — Removing a Ransack filter pill now correctly removes its nested `q` parameter.
-- **Zero-config engine assets** — The engine now composes a namespaced `rails_nexus/application` importmap into the host app, registers its JavaScript and Sprockets precompile assets, and loads its standalone stylesheet without depending on the host's `application` assets.
+- **Zero-config engine assets** — The engine registers its prebuilt JavaScript and CSS assets without depending on the host's application entry point or assets.
 - **Local Hotwire assets** — Turbo and Stimulus are served from their Rails gems instead of third-party CDN URLs, improving CSP compatibility and offline deployment.
-- **Importmap entry-point collision** — RailsNexus no longer pins its JavaScript as the host application's `application` module.
+- **Host entry-point isolation** — RailsNexus no longer adds pins or imports to the host application's JavaScript setup.
 
 ## [1.1.0] - 2026-08-22
 

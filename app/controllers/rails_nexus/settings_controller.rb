@@ -2,8 +2,6 @@
 
 module RailsNexus
   class SettingsController < ApplicationController
-    before_action :verify_access
-
     def index
       @webhooks = RailsNexus.configuration.webhooks || []
       @webhook_headers = RailsNexus.configuration.webhook_headers || {}
@@ -43,14 +41,6 @@ module RailsNexus
 
     private
 
-    def verify_access
-      config = RailsNexus.configuration
-      return if config.auth_block.nil?
-      unless config.auth_block&.call(self)
-        render plain: "Forbidden", status: :forbidden
-      end
-    end
-
     def build_test_payload
       {
         event: "webhook.test",
@@ -66,35 +56,7 @@ module RailsNexus
     end
 
     def deliver_test_webhook(url, payload)
-      require "net/http"
-      require "uri"
-      require "json"
-
-      uri = URI(url)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = uri.scheme == "https"
-      http.open_timeout = 10
-      http.read_timeout = 10
-
-      request = Net::HTTP::Post.new(uri)
-      request["Content-Type"] = "application/json"
-      request.body = payload.to_json
-
-      start_time = Time.now
-      response = http.request(request)
-      duration = Time.now - start_time
-
-      {
-        success: response.is_a?(Net::HTTPSuccess),
-        status_code: response.code,
-        body: response.body&.truncate(500),
-        duration: duration.round(3)
-      }
-    rescue StandardError => e
-      {
-        success: false,
-        error: e.message
-      }
+      RailsNexus::WebhookClient.deliver(url: url, payload: payload, timeout: 10)
     end
   end
 end

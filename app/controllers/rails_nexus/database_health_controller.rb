@@ -2,8 +2,6 @@
 
 module RailsNexus
   class DatabaseHealthController < ApplicationController
-    before_action :verify_access
-
     def index
       @period = params[:period]&.to_i || 7
       @period = [@period, 1].max
@@ -20,14 +18,6 @@ module RailsNexus
     end
 
     private
-
-    def verify_access
-      config = RailsNexus.configuration
-      return if config.auth_block.nil?
-      unless config.auth_block&.call(self)
-        render plain: "Forbidden", status: :forbidden
-      end
-    end
 
     def collect_pool_by_error(time_range)
       # Get all errors with system_health data in the time range

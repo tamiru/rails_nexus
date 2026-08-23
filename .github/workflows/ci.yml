@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.2", "3.3", "3.4", "4.0"]
+        rails: ["8.0", "8.1"]
+        exclude:
+          - ruby: "4.0"
+            rails: "8.0"
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: gemfiles/rails_${{ matrix.rails }}.gemfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bin/rails test
+
+  databases:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: sqlite
+            adapter: sqlite3
+            name: storage/test.sqlite3
+          - database: postgresql
+            adapter: postgresql
+            name: rails_nexus_test
+            port: 5432
+            username: postgres
+            password: postgres
+          - database: mysql
+            adapter: mysql2
+            name: rails_nexus_test
+            port: 3306
+            username: root
+            password: root
+          - database: mariadb
+            adapter: mysql2
+            name: rails_nexus_test
+            port: 3307
+            username: root
+            password: root
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rails_nexus_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: rails_nexus_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -proot" --health-interval 10s
+          --health-timeout 5s --health-retries 10
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: rails_nexus_test
+        ports: ["3307:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      BUNDLE_GEMFILE: gemfiles/database.gemfile
+      DB_ADAPTER: ${{ matrix.adapter }}
+      DB_NAME: ${{ matrix.name }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: ${{ matrix.port }}
+      DB_USERNAME: ${{ matrix.username }}
+      DB_PASSWORD: ${{ matrix.password }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - run: bin/rails app:db:prepare
+      - run: bin/rails test test/models test/controllers test/lib
+
+  assets:
+    strategy:
+      matrix:
+        include:
+          - pipeline: sprockets
+            gemfile: rails_8_1
+          - pipeline: propshaft
+            gemfile: propshaft
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: gemfiles/${{ matrix.gemfile }}.gemfile
+      RAILS_ENV: production
+      SECRET_KEY_BASE_DUMMY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - run: bin/rails app:assets:precompile
+
+  security:
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: gemfiles/tooling.gemfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - run: bundle exec rubocop
+      - run: bundle exec brakeman --no-pager -q -p .
+      - run: bundle exec bundle-audit check --update

@@ -2,7 +2,6 @@
 
 module RailsNexus
   class BackupController < ApplicationController
-    before_action :rails_nexus_require_auth!
     before_action :check_backup_enabled
     before_action :set_config, only: %i[edit update destroy trigger]
 
@@ -64,7 +63,7 @@ module RailsNexus
       begin
         RailsNexus::BackupJob.perform_later(@config.id)
         redirect_to backup_path, notice: "Backup '#{@config.name}' started in background."
-      rescue => e
+      rescue
         # Fallback to synchronous if Active Job is not configured
         result = RailsNexus::BackupService.run(@config)
         if result[:success]

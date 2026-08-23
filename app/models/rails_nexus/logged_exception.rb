@@ -24,14 +24,14 @@ module RailsNexus
     scope :unassigned, -> { where(assigned_to: [nil, ""]) }
     scope :active, -> { not_muted.not_snoozed }
 
-    def self.ransackable_attributes(auth_object = nil)
+    def self.ransackable_attributes(_auth_object = nil)
       %w[action_name backtrace cause_chain controller_name created_at device_type environment
          assigned_to comments_count exception_class fingerprint id instance_variables local_variables
          message muted occurrence_count platform platform_version priority remote_ip request
          snoozed_until system_health updated_at user_agent user_id user_info]
     end
 
-    def self.ransackable_associations(auth_object = nil)
+    def self.ransackable_associations(_auth_object = nil)
       []
     end
 
@@ -299,8 +299,8 @@ module RailsNexus
 
           # Look for ActiveRecord collection iteration patterns:
           # e.g., .each, .map, .find_each near ActiveRecord calls
-          has_iteration = app_lines.any? { |l| l.match?(/\.each|\.map|\.select|\.reject|\.flat_map|\.find_each/) }
-          has_ar_call = app_lines.any? { |l| l.match?(/ActiveRecord|_callback|association|belongs_to|has_many|load_target|reload/) }
+          app_lines.any? { |l| l.match?(/\.each|\.map|\.select|\.reject|\.flat_map|\.find_each/) }
+          app_lines.any? { |l| l.match?(/ActiveRecord|_callback|association|belongs_to|has_many|load_target|reload/) }
 
           # Also detect: repeated similar backtrace across multiple exceptions of same class
           fingerprint = backtrace_fingerprint(app_lines)
@@ -435,9 +435,11 @@ module RailsNexus
       end
 
       begin
+        stdout, _stderr, status = Open3.capture3("ps", "-o", "rss=,vsz=", "-p", Process.pid.to_s)
+        memory = status.success? ? stdout.split.map(&:to_i) : []
         health[:memory] = {
-          rss_kb: `ps -o rss= -p #{Process.pid} 2>/dev/null`.strip.to_i,
-          vsz_kb: `ps -o vsz= -p #{Process.pid} 2>/dev/null`.strip.to_i
+          rss_kb: memory[0] || 0,
+          vsz_kb: memory[1] || 0
         }
       rescue StandardError
         health[:memory] = { error: "unable to capture" }
@@ -495,17 +497,28 @@ module RailsNexus
       if request.is_a?(String)
         write_attribute :request, request
       elsif request.respond_to?(:env) && request.env.is_a?(Hash)
-        max = request.env.keys.max { |a, b| a.length <=> b.length }
-        env = request.env.keys.sort.inject [] do |memo, key|
-          memo << "* %-*s: %s" % [max.length, key, request.env[key].to_s.strip]
+        filtered_env = RailsNexus.filter_sensitive_data(request.env)
+        keys = filtered_env.keys.map(&:to_s).sort
+        max_length = keys.map(&:length).max || 0
+        env = keys.each_with_object([]) do |key, memo|
+          value = filtered_env[key] || filtered_env[key.to_sym]
+          memo << ("* %-*s: %s" % [max_length, key, value.to_s.strip])
         end
         write_attribute(:environment, (env << "* Process: #{$$}" << "* Server : #{self.class.host_name}").join("\n"))
 
         method_str = request.respond_to?(:get?) && request.get? ? "" : " #{request.respond_to?(:method) ? request.method.to_s.upcase : "GET"}"
+        parameters = request.respond_to?(:parameters) ? RailsNexus.filter_sensitive_data(request.parameters) : {}
+        request_path = if request.respond_to?(:path)
+                         request.path
+                       elsif request.respond_to?(:fullpath)
+                         request.fullpath.to_s.split("?", 2).first
+                       else
+                         "/"
+                       end
         write_attribute(:request, [
-          "* URL:#{method_str} #{request.respond_to?(:protocol) ? request.protocol : "http://"}#{request.respond_to?(:env) ? request.env["HTTP_HOST"] : "localhost"}#{request.respond_to?(:fullpath) ? request.fullpath : "/"}",
+          "* URL:#{method_str} #{request.respond_to?(:protocol) ? request.protocol : "http://"}#{filtered_env["HTTP_HOST"] || "localhost"}#{request_path}",
           "* Format: #{request.respond_to?(:format) ? request.format.to_s : "html"}",
-          "* Parameters: #{request.respond_to?(:parameters) ? request.parameters.inspect : "{}"}",
+          "* Parameters: #{parameters.inspect}",
           "* Rails Root: #{rails_root}"
         ].join("\n"))
       else
@@ -545,10 +558,11 @@ module RailsNexus
 
     # Build hourly time series of error counts
     def self.build_time_series(days: 30)
+      days = (Integer(days, exception: false) || 30).clamp(1, 90)
       start_time = days.days.ago.beginning_of_hour
+      bucket = RailsNexus::DatabaseAdapter.time_bucket_expression
       raw = where("created_at >= ?", start_time)
-        .group(Arel.sql("DATE_FORMAT(created_at, '%Y-%m-%d %H:00')"))
-        .order(Arel.sql("DATE_FORMAT(created_at, '%Y-%m-%d %H:00')"))
+        .group(Arel.sql(bucket))
         .count
 
       # Fill gaps with zeros

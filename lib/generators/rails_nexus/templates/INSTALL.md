@@ -7,3 +7,4 @@ Next steps:
 3. Visit `/rails_nexus` in the host application.
 
 The dashboard denies access until authentication is configured.
+The generator captures `StandardError` application failures and deliberately leaves fatal process and VM exceptions to Rails and Ruby.

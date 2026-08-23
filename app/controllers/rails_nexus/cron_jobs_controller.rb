@@ -2,7 +2,6 @@
 
 module RailsNexus
   class CronJobsController < ApplicationController
-    before_action :verify_access
     before_action :set_cron_job, only: [:show, :destroy]
 
     def index
@@ -36,7 +35,7 @@ module RailsNexus
     end
 
     def clear_old
-      days = params[:days].to_i || 30
+      days = params[:days].to_i
       CronJob.where("created_at < ?", days.days.ago).delete_all
       redirect_to cron_jobs_path, notice: "Deleted cron jobs older than #{days} days."
     end
@@ -53,12 +52,5 @@ module RailsNexus
       @cron_job = CronJob.find(params[:id])
     end
 
-    def verify_access
-      config = RailsNexus.configuration
-      return if config.auth_block.nil?
-      unless config.auth_block&.call(self)
-        render plain: "Forbidden", status: :forbidden
-      end
-    end
   end
 end

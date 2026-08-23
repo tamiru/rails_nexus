@@ -15,10 +15,12 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/tamiru/rails_nexus/tree/main"
   spec.metadata["changelog_uri"] = "https://github.com/tamiru/rails_nexus/blob/main/CHANGELOG.md"
+  spec.metadata["bug_tracker_uri"] = "https://github.com/tamiru/rails_nexus/issues"
   spec.metadata["funding_uri"] = "https://github.com/sponsors/tamiru"
 
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
-    Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.md", "rails_nexus.gemspec"]
+    Dir["{app,config,db,lib}/**/*", "CHANGELOG.md", "SECURITY.md", "THIRD_PARTY_NOTICES.md", "MIT-LICENSE", "Rakefile", "README.md", "rails_nexus.gemspec"]
+      .reject { |file| file.match?(%r{(?:^|/)(?:\.idea|log|tmp|storage|pkg)(?:/|$)|\.(?:gem|sqlite3|log)\z|Zone\.Identifier\z}) }
   end
 
   spec.required_ruby_version = ">= 3.2.0"
@@ -26,7 +28,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rails", "~> 8.0", ">= 8.0.0"
   spec.add_dependency "stimulus-rails", "~> 1.3"
   spec.add_dependency "turbo-rails", "~> 2.0"
-  spec.add_dependency "importmap-rails", "~> 2.0"
   spec.add_dependency "pagy", "~> 6.5"
 
   spec.add_dependency "ransack", "~> 4.0"

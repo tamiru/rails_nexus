@@ -34,6 +34,9 @@ Rails.application.config.to_prepare do
     # config.webhooks = ["https://hooks.slack.com/services/xxx"]
     # config.webhook_timeout = 5
     # config.webhook_headers = { "Authorization" => "Bearer token" }
+    # config.webhook_allowed_hosts = ["hooks.example.com", "*.example.org"]
+    # config.webhook_denied_hosts = ["blocked.example.org"]
+    # config.webhook_allow_http_in_development = false
 
     # ─── Cleanup ─────────────────────────────────────────────
     # Auto-delete exceptions older than N days

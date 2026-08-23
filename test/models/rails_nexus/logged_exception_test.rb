@@ -65,6 +65,36 @@ class RailsNexus::LoggedExceptionTest < ActiveSupport::TestCase
     assert_includes logged.backtrace, "app/controllers/users_controller.rb"
   end
 
+  test "request persistence filters nested parameters headers and cookies without mutation" do
+    original_filters = Rails.application.config.filter_parameters.dup
+    Rails.application.config.filter_parameters += [:private_note]
+    parameters = {
+      "account" => {
+        "password" => "secret-password",
+        "items" => [{ "access_token" => "secret-token", "name" => "visible" }]
+      },
+      "private_note" => "secret-note"
+    }
+    request = MockRequest.new(parameters: parameters, env: {
+      "HTTP_HOST" => "example.test",
+      "HTTP_AUTHORIZATION" => "Bearer secret-authorization",
+      "HTTP_COOKIE" => "session=secret-cookie"
+    })
+
+    logged = RailsNexus::LoggedException.create_from_exception(MockController.new(request: request), RuntimeError.new("Boom"), {})
+
+    assert_equal "secret-password", parameters.dig("account", "password")
+    assert_includes logged.request, "[FILTERED]"
+    assert_includes logged.request, "visible"
+    refute_includes logged.request, "secret-password"
+    refute_includes logged.request, "secret-token"
+    refute_includes logged.request, "secret-note"
+    refute_includes logged.environment, "secret-authorization"
+    refute_includes logged.environment, "secret-cookie"
+  ensure
+    Rails.application.config.filter_parameters = original_filters
+  end
+
   test "scope sorted returns most recent first" do
     old = create_exception(created_at: 2.days.ago)
     new_record = create_exception(created_at: 1.hour.ago)
@@ -146,6 +176,23 @@ class RailsNexus::LoggedExceptionTest < ActiveSupport::TestCase
     assert_equal 2, actions.count
   end
 
+  test "hourly time series uses portable bounded database grouping" do
+    create_exception(created_at: 30.minutes.ago)
+    create_exception(created_at: 90.minutes.ago)
+
+    series = RailsNexus::LoggedException.build_time_series(days: 1)
+
+    assert_equal 25, series.length
+    assert_equal 2, series.values.sum
+    assert_match(/strftime/, RailsNexus::DatabaseAdapter.time_bucket_expression) if ActiveRecord::Base.connection.adapter_name.match?(/sqlite/i)
+  end
+
+  test "time series clamps excessive ranges" do
+    series = RailsNexus::LoggedException.build_time_series(days: 10_000)
+
+    assert_operator series.length, :<=, (90 * 24) + 2
+  end
+
   test "name returns formatted string" do
     exception = create_exception(exception_class: "RuntimeError", controller_name: "users", action_name: "show")
     assert_equal "RuntimeError in Users/show", exception.name
@@ -181,14 +228,14 @@ end
 class MockRequest
   attr_reader :remote_ip, :method, :fullpath, :format, :protocol, :parameters, :env
 
-  def initialize
+  def initialize(parameters: nil, env: nil)
     @remote_ip = "127.0.0.1"
     @method = "GET"
     @fullpath = "/test"
     @format = "text/html"
     @protocol = "http://"
-    @parameters = { "controller" => "test", "action" => "index" }
-    @env = {
+    @parameters = parameters || { "controller" => "test", "action" => "index" }
+    @env = env || {
       "REQUEST_METHOD" => "GET",
       "HTTP_HOST" => "localhost",
       "REMOTE_ADDR" => "127.0.0.1",

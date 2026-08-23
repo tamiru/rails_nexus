@@ -1,0 +1,17 @@
+AllCops:
+  TargetRubyVersion: 3.2
+  NewCops: enable
+  DisabledByDefault: true
+  Exclude:
+    - "app/assets/javascripts/rails_nexus/application.js"
+    - "lib/generators/rails_nexus/templates/**/*.rb"
+    - "test/dummy/**/*"
+
+Lint:
+  Enabled: true
+
+Security:
+  Enabled: true
+
+Gemspec/RequireMFA:
+  Enabled: true

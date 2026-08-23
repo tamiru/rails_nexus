@@ -26,6 +26,10 @@ module RailsNexus
     attribute :split_chunks,       :boolean, default: false
 
     validates :name, presence: true, uniqueness: true
+    validates :name, format: {
+      with: /\A[a-zA-Z0-9_$][a-zA-Z0-9_$.-]*\z/,
+      message: "may contain only letters, numbers, dots, underscores, dollar signs, and hyphens"
+    }
     validates :database_name, presence: true, if: -> { adapter != "redis" }
     validates :adapter, presence: true, inclusion: { in: ADAPTERS }
     validates :storage_path, presence: true
@@ -38,6 +42,11 @@ module RailsNexus
     validates :s3_secret_key, presence: true, if: :s3_enabled?
     validates :gpg_password, presence: true, if: :gpg_enabled?
     validates :email_to, presence: true, if: :email_notify?
+    validates :port, :rsync_port,
+      numericality: { only_integer: true, greater_than: 0, less_than_or_equal_to: 65_535 },
+      allow_nil: true
+    validate :database_identifier_is_safe
+    validate :remote_sync_values_are_safe
 
     scope :enabled,  -> { where(enabled: true) }
     scope :disabled, -> { where(enabled: false) }
@@ -138,6 +147,28 @@ module RailsNexus
     end
 
     private
+
+    def database_identifier_is_safe
+      return if database_name.blank? || sqlite?
+
+      unless database_name.match?(/\A[a-zA-Z0-9_$][a-zA-Z0-9_$.-]*\z/) && !database_name.include?("..")
+        errors.add(:database_name, "contains unsupported characters")
+      end
+    end
+
+    def remote_sync_values_are_safe
+      return unless rsync_enabled?
+
+      unless rsync_host.to_s.match?(/\A[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?\z/)
+        errors.add(:rsync_host, "is not a valid hostname")
+      end
+      unless rsync_user.to_s.match?(/\A[a-zA-Z0-9_][a-zA-Z0-9_.-]*\z/)
+        errors.add(:rsync_user, "contains unsupported characters")
+      end
+      unless rsync_path.to_s.start_with?("/") && !rsync_path.to_s.match?(/[\0\r\n]/)
+        errors.add(:rsync_path, "must be an absolute remote path")
+      end
+    end
 
     def dump_extension
       parts = ["sql"]

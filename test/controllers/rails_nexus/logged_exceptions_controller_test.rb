@@ -110,7 +110,7 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
 
     assert_response :success
     assert_select ".rn-exception-name" do |names|
-      assert_equal ["ArgumentError", "RuntimeError"], names.map { |node| node.text.strip }
+      assert_equal(["ArgumentError", "RuntimeError"], names.map { |node| node.text.strip })
     end
   end
 
@@ -182,7 +182,7 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
   end
 
   test "destroy_all with ids removes specific exceptions" do
-    second = RailsNexus::LoggedException.create!(
+    RailsNexus::LoggedException.create!(
       exception_class: "ArgumentError",
       controller_name: "posts",
       action_name: "index",

@@ -1,22 +1,29 @@
 require "test_helper"
 
 class NavigationTest < ActionDispatch::IntegrationTest
-  test "engine importmap is composed into the host application" do
-    packages = Rails.application.importmap.packages
-
-    assert_equal "rails_nexus/application.js", packages.fetch("rails_nexus/application").path
-    assert_equal "turbo.min.js", packages.fetch("@hotwired/turbo-rails").path
-    assert_equal "stimulus.min.js", packages.fetch("@hotwired/stimulus").path
+  setup do
+    @original_auth_block = RailsNexus.configuration.auth_block
+    RailsNexus.configuration.auth_block = ->(_controller) { true }
   end
 
-  test "all engine importmap assets resolve through the host asset pipeline" do
-    imports = JSON.parse(
-      Rails.application.importmap.to_json(resolver: ActionController::Base.helpers)
-    ).fetch("imports")
+  teardown do
+    RailsNexus.configuration.auth_block = @original_auth_block
+  end
 
-    assert_match %r{/assets/rails_nexus/application-.*\.js}, imports.fetch("rails_nexus/application")
-    assert_match %r{/assets/controllers/rails_nexus_controller-.*\.js}, imports.fetch("rails_nexus/controllers/rails_nexus")
-    assert_match %r{/assets/turbo\.min-.*\.js}, imports.fetch("@hotwired/turbo-rails")
-    assert_match %r{/assets/stimulus\.min-.*\.js}, imports.fetch("@hotwired/stimulus")
+  test "engine layout loads its prebuilt assets without importmap tags" do
+    get "/rails_nexus"
+
+    assert_response :success
+    assert_select "script[src*='rails_nexus/application'][defer]", count: 1
+    assert_select "script[type='importmap']", count: 0
+    assert_select "link[href*='rails_nexus/application'][rel='stylesheet']", count: 1
+  end
+
+  test "prebuilt JavaScript contains Turbo and namespaced Stimulus controllers" do
+    asset = RailsNexus::Engine.root.join("app/assets/javascripts/rails_nexus/application.js").read
+
+    assert_includes asset, "rails_nexus-sidebar"
+    assert_includes asset, "RailsNexusStimulus"
+    assert_match(/Turbo/, asset)
   end
 end

@@ -1,16 +1,22 @@
 require "rails"
-require "importmap-rails"
+require "active_support/parameter_filter"
 require "turbo-rails"
 require "stimulus-rails"
 require "pagy"
 require "ipaddr"
 require "socket"
+require "open3"
 require "rails_nexus/version"
 require "rails_nexus/configuration"
 require "rails_nexus/logger"
+require "rails_nexus/database_adapter"
 require "rails_nexus/engine"
 
 module RailsNexus
+  DEFAULT_FILTER_PARAMETERS = %i[
+    password passw passwd secret token api_key apikey authorization cookie session
+  ].freeze
+
   class << self
     attr_writer :configuration
 
@@ -34,6 +40,24 @@ module RailsNexus
     # Convenience logger accessor
     def logger
       RailsNexus::Logger
+    end
+
+    def parameter_filter
+      configured = defined?(::Rails) ? ::Rails.application.config.filter_parameters : []
+      ActiveSupport::ParameterFilter.new(DEFAULT_FILTER_PARAMETERS + Array(configured))
+    end
+
+    def filter_sensitive_data(value)
+      value = value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
+
+      case value
+      when Hash
+        parameter_filter.filter(value)
+      when Array
+        value.map { |entry| filter_sensitive_data(entry) }
+      else
+        value
+      end
     end
   end
 
@@ -78,28 +102,19 @@ module RailsNexus
 
     # we log the exception and raise it again, for the normal handling.
     def log_exception_handler(exception)
-      log_exception(exception)
+      log_exception(exception) if exception.is_a?(StandardError)
       raise exception
     end
 
     def rescue_action(exception)
       status = response_code_for_rescue(exception)
-      log_exception(exception) if status != :not_found
+      log_exception(exception) if exception.is_a?(StandardError) && status != :not_found
       super
     end
 
-    def filter_sub_parameters(params, rails_filter_parameters)
-      params.each do |key, value|
-        if(value.class != Hash and value.class != ActiveSupport::HashWithIndifferentAccess)
-          params[key] = '[FILTERED]' if rails_filter_parameters.include?(key.to_sym)
-        else
-          params[key] = filter_sub_parameters(value, rails_filter_parameters)
-        end
-      end
-      params
-    end
-
     def log_exception(exception)
+      return unless exception.is_a?(StandardError)
+
       # Support both the legacy class_attribute and the new configuration DSL
       deliverer = if self.class.exception_data
                     self.class.exception_data
@@ -113,15 +128,7 @@ module RailsNexus
              when Proc   then deliverer.call(self)
              end
 
-      rails_filter_parameters = defined?(::Rails) ? ::Rails.application.config.filter_parameters : []
-
-      self.request.parameters.each do |key, value|
-        if(value.class != Hash and value.class != ActiveSupport::HashWithIndifferentAccess)
-          self.request.parameters[key] = '[FILTERED]' if rails_filter_parameters.include?(key.to_sym)
-        else
-          self.request.parameters[key] = filter_sub_parameters(value, rails_filter_parameters)
-        end
-      end if rails_filter_parameters.any?
+      data = RailsNexus.filter_sensitive_data(data || {})
 
       # Log with structured logger
       RailsNexus::Logger.error(exception, controller: self, extra: data)
@@ -130,4 +137,11 @@ module RailsNexus
       LoggedException.create_from_exception(self, exception, data)
     end
   end
+end
+
+# Compatibility for applications that integrated the exception concern under
+# the pre-RailsNexus namespace. New integrations should use
+# RailsNexus::ExceptionLoggable.
+module RailsOps
+  ExceptionLoggable = RailsNexus::ExceptionLoggable unless const_defined?(:ExceptionLoggable, false)
 end

@@ -339,7 +339,7 @@
                       </td>
                       <td>
                         <span class="text-sm" style="color: var(--rn-text-muted)">
-                          <%= table[:size_mb] > 0 ? "#{table[:size_mb]} MB" : "—" %>
+                          <%= table[:size_mb].to_f > 0 ? "#{table[:size_mb]} MB" : "—" %>
                         </span>
                       </td>
                       <td>

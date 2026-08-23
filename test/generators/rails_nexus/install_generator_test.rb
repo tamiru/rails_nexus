@@ -38,7 +38,17 @@ class RailsNexus::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     end
 
     assert_file "app/controllers/application_controller.rb" do |content|
-      assert_match(/rescue_from Exception, with: :log_exception_handler/, content)
+      assert_match(/rescue_from StandardError, with: :log_exception_handler/, content)
+      refute_match(/rescue_from Exception,/, content)
+    end
+  end
+
+  test "does not duplicate an existing exception handler" do
+    run_generator
+    run_generator
+
+    assert_file "app/controllers/application_controller.rb" do |content|
+      assert_equal 1, content.scan("log_exception_handler").length
     end
   end
 end
