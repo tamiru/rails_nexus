@@ -1,0 +1,190 @@
+<div id="exceptions-content" class="rn-card overflow-hidden">
+  <% if @exceptions.empty? %>
+    <div class="py-16 text-center">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto" style="background: var(--rn-success-light)">
+        <svg class="w-6 h-6" style="color: var(--rn-success)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p class="mt-3 text-sm font-medium" style="color: var(--rn-text)"><%= t(".empty") %></p>
+      <p class="mt-1 text-xs" style="color: var(--rn-text-muted)">No exceptions match your current filters.</p>
+      <% if filtered? %>
+        <%= link_to "Clear filters", logged_exceptions_path, class: "mt-3 inline-block text-xs font-medium", style: "color: var(--rn-primary)" %>
+      <% end %>
+    </div>
+  <% else %>
+    <%# ─── Table Header Bar ───────────────────────────────────── %>
+    <div class="px-4 py-2.5 flex items-center justify-between" style="background: var(--rn-bg-secondary); border-bottom: 1px solid var(--rn-border-light)">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-medium" style="color: var(--rn-text-secondary)">
+          <span class="font-semibold" style="color: var(--rn-text)"><%= number_with_delimiter(@pagy.count) %></span> exceptions
+          <% if filtered? %>
+            <span style="color: var(--rn-text-muted)">(filtered)</span>
+          <% end %>
+        </span>
+
+        <%# Page size selector %>
+        <div class="flex items-center gap-1">
+          <span class="text-xs" style="color: var(--rn-text-muted)">Show</span>
+          <% RailsNexus.configuration.page_size_options.each do |size| %>
+            <%= link_to size.to_s,
+              logged_exceptions_path(params_filters.merge(per_page: size)),
+              class: "rn-btn rn-btn-xs #{params[:per_page].to_i == size || (!params[:per_page] && size == RailsNexus.configuration.per_page) ? 'rn-btn-primary' : 'rn-btn-ghost'}",
+              data: { turbo_frame: "exceptions" } %>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <%# Keyboard hint %>
+        <span class="text-xs flex items-center gap-1" style="color: var(--rn-text-muted)">
+          <span class="rn-kbd">?</span> shortcuts
+        </span>
+
+        <%= link_to destroy_all_logged_exceptions_path(params_filters),
+          class: "rn-btn rn-btn-ghost rn-btn-sm",
+          style: "color: var(--rn-danger); border-color: var(--rn-danger)",
+          data: { turbo_method: :post, turbo_confirm: t(".confirm_delete_visible"), turbo_stream: true } do %>
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+          Delete all
+        <% end %>
+      </div>
+    </div>
+
+    <%# ─── Exception Table ────────────────────────────────────── %>
+    <div class="rn-table-wrap">
+      <table class="rn-table rn-exceptions-table">
+        <thead>
+          <tr>
+            <th class="rn-col-severity"><span class="sr-only">Severity</span></th>
+            <th class="rn-col-exception <%= sort_header_class(:exception_class) %>"><%= sort_link @q, :exception_class, "Exception" %></th>
+            <% if exception_feature?(:platform) %>
+              <th class="rn-col-platform <%= sort_header_class(:platform) %>"><%= sort_link @q, :platform, "Platform" %></th>
+            <% end %>
+            <th class="rn-col-source <%= sort_header_class(:controller_name) %>"><%= sort_link @q, :controller_name, "Source" %></th>
+            <th class="rn-col-message <%= sort_header_class(:message) %>"><%= sort_link @q, :message, "Message" %></th>
+            <% if exception_feature?(:occurrence_count) %>
+              <th class="rn-col-count <%= sort_header_class(:occurrence_count) %>"><%= sort_link @q, :occurrence_count, "Count" %></th>
+            <% else %>
+              <th class="rn-col-count">Count</th>
+            <% end %>
+            <th class="rn-col-workflow <%= sort_header_class(:priority) if exception_feature?(:priority) && exception_searchable?(:priority) %>">
+              <%= exception_feature?(:priority) && exception_searchable?(:priority) ? sort_link(@q, :priority, "Workflow") : "Workflow" %>
+            </th>
+            <th class="rn-col-time <%= sort_header_class(:created_at) %>"><%= sort_link @q, :created_at, "Last Seen" %></th>
+            <th class="rn-col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody data-rails_nexus-target="exceptionList">
+          <% @exceptions.each_with_index do |exception, index| %>
+            <tr id="<%= dom_id(exception) %>"
+                class="group"
+                style="cursor: pointer; position: relative"
+                data-action="click->rails_nexus#selectRow"
+                data-url="<%= logged_exception_path(exception) %>"
+                data-index="<%= index %>"
+                data-rails_nexus-index-param="<%= index %>">
+
+              <%# Severity indicator dot %>
+              <td>
+                <span class="rn-count-indicator rn-badge-<%= severity_for(exception) %>"
+                      style="background: var(--rn-<%= severity_for(exception) %>-light); color: var(--rn-<%= severity_for(exception) %>); width: 0.5rem; height: 0.5rem; min-width: 0; padding: 0; border-radius: 50%">
+                </span>
+              </td>
+
+              <%# Exception class with severity badge %>
+              <td class="rn-col-exception">
+                <span class="rn-badge rn-badge-<%= severity_for(exception) %> rn-exception-name" title="<%= exception.exception_class %>"><%= exception.exception_class %></span>
+                <% if exception.respond_to?(:fingerprint) && exception.fingerprint.present? %>
+                  <span class="rn-row-meta rn-mono" title="Fingerprint"><%= exception.fingerprint.first(10) %></span>
+                <% end %>
+              </td>
+
+              <%# Platform badge %>
+              <% if exception_feature?(:platform) %>
+                <td class="rn-col-platform">
+                  <span class="rn-badge rn-badge-<%= exception.platform == 'ios' ? 'success' : exception.platform == 'android' ? 'warning' : exception.platform == 'api' ? 'info' : exception.platform == 'bot' ? 'muted' : 'primary' %>">
+                    <%= exception.platform&.upcase || 'WEB' %>
+                  </span>
+                </td>
+              <% end %>
+
+              <%# Source (controller + action) %>
+              <td class="rn-col-source">
+                <div class="rn-source" title="<%= [exception.controller_name, exception.action_name].compact.join('#') %>">
+                  <span class="rn-mono text-xs" style="color: var(--rn-text-secondary)"><%= exception.controller_name.presence || "—" %></span>
+                  <% if exception.action_name.present? %>
+                    <span class="rn-mono text-xs" style="color: var(--rn-text-muted)">#<%= exception.action_name %></span>
+                  <% end %>
+                </div>
+              </td>
+
+              <%# Message (truncated) %>
+              <td class="rn-col-message">
+                <div class="rn-msg" title="<%= exception.message %>">
+                  <%= exception.message.presence || "No message" %>
+                </div>
+              </td>
+
+              <%# Occurrence count %>
+              <td class="rn-col-count">
+                <span class="rn-badge rn-badge-muted"><%= number_with_delimiter(exception_occurrence_count(exception)) %></span>
+              </td>
+
+              <%# Workflow indicators %>
+              <td class="rn-col-workflow">
+                <% status_label, status_style = exception_status(exception) %>
+                <div class="rn-workflow-state">
+                  <span class="rn-badge rn-badge-xs rn-badge-<%= status_style %>"><%= status_label %></span>
+                  <% if exception.respond_to?(:priority) && exception.priority.present? %>
+                    <span class="rn-badge rn-badge-xs rn-badge-<%= exception.priority == 'critical' ? 'danger' : exception.priority == 'high' ? 'warning' : exception.priority == 'medium' ? 'info' : 'muted' %>"><%= exception.priority.upcase %></span>
+                  <% end %>
+                  <% if exception.respond_to?(:assigned_to) && exception.assigned_to.present? %>
+                    <span class="rn-row-meta" title="Assigned to <%= exception.assigned_to %>">👤 <%= exception.assigned_to %></span>
+                  <% elsif exception.respond_to?(:comments_count) && exception.comments_count.to_i > 0 %>
+                    <span class="rn-row-meta"><%= exception.comments_count %> comments</span>
+                  <% end %>
+                </div>
+              </td>
+
+              <%# Time (relative) %>
+              <td class="rn-date"><%= pretty_exception_date(exception) %></td>
+
+              <%# Actions (delete on hover) %>
+              <td class="rn-col-actions" style="text-align: right">
+                <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <%= link_to logged_exception_path(exception),
+                    class: "rn-icon-btn",
+                    style: "color: var(--rn-text-muted)",
+                    title: "View details",
+                    data: { turbo_frame: "exception-details", action: "click->rails_nexus#stopPropagation" } do %>
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                  <% end %>
+                  <%= link_to logged_exception_path(exception),
+                    class: "rn-icon-btn",
+                    style: "color: var(--rn-danger)",
+                    title: "Delete",
+                    data: { turbo_method: :delete, turbo_confirm: t(".confirm_delete"), turbo_stream: true, action: "click->rails_nexus#stopPropagation" } do %>
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                  <% end %>
+                </div>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <%# ─── Pagination ─────────────────────────────────────────── %>
+    <% if @pagy.pages > 1 %>
+      <div class="rn-pagination">
+        <p class="text-xs" style="color: var(--rn-text-muted)">
+          Showing <span class="font-medium" style="color: var(--rn-text-secondary)"><%= @pagy.from %></span>
+          to <span class="font-medium" style="color: var(--rn-text-secondary)"><%= @pagy.to %></span>
+          of <span class="font-medium" style="color: var(--rn-text-secondary)"><%= @pagy.count %></span>
+        </p>
+        <div><%== pagy_nav(@pagy) %></div>
+      </div>
+    <% end %>
+  <% end %>
+</div>

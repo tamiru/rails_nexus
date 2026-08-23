@@ -1,0 +1,158 @@
+<% page_title t(".title", default: "Backup Settings") %>
+
+<div class="space-y-6">
+  <%# ─── Header ──────────────────────────────────────────────── %>
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <a href="<%= backup_path %>" class="rn-breadcrumb">Backups</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current">Settings</span>
+  </nav>
+
+  <div class="flex items-center gap-3">
+    <svg class="w-6 h-6" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+    <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Backup Settings</h1>
+  </div>
+
+  <%# ─── Settings Form ───────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Configuration</h2>
+      <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Settings are saved to <code>config/rails_nexus_backup.yml</code></p>
+    </div>
+
+    <%= form_with url: backup_update_settings_path, method: :patch, class: "p-4 space-y-6" do |f| %>
+      <%# General %>
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">General</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Backup Enabled</label>
+            <%= f.select :enabled, options_for_select([["Yes", true], ["No", false]], @backup_config[:enabled]), {}, class: "rn-input mt-1" %>
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Alert Threshold (hours)</label>
+            <%= f.number_field :alert_threshold_hours, value: @backup_config[:alert_threshold_hours] || 24, class: "rn-input mt-1" %>
+            <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Alert when no backup in this many hours</p>
+          </div>
+        </div>
+      </div>
+
+      <%# Paths %>
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">Paths</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Backup Config File</label>
+            <%= f.text_field :config_path, value: @backup_config[:config_path], placeholder: "~/Backup/config.rb", class: "rn-input mt-1" %>
+            <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Path to backup gem's config.rb</p>
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Backup Models Directory</label>
+            <%= f.text_field :models_path, value: @backup_config[:models_path], placeholder: "~/Backup/models", class: "rn-input mt-1" %>
+            <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Directory containing backup model files</p>
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Dump Directory</label>
+            <%= f.text_field :dump_path, value: @backup_config[:dump_path], placeholder: "~/dumps", class: "rn-input mt-1" %>
+            <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Where backup files are stored</p>
+          </div>
+        </div>
+      </div>
+
+      <%# Notification %>
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">Notification</h3>
+        <div>
+          <label class="text-xs font-medium" style="color: var(--rn-text)">Notify Command</label>
+          <%= f.text_field :notify_command, value: @backup_config[:notify_command], placeholder: "bk-send", class: "rn-input mt-1" %>
+          <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Shell command to run on backup success/failure</p>
+        </div>
+      </div>
+
+      <%# RSync %>
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">RSync (Remote Sync)</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Host</label>
+            <%= f.text_field :rsync_host, value: @backup_config[:rsync_host], placeholder: "192.168.1.100", class: "rn-input mt-1" %>
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Port</label>
+            <%= f.number_field :rsync_port, value: @backup_config[:rsync_port] || 22, class: "rn-input mt-1" %>
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">SSH User</label>
+            <%= f.text_field :rsync_user, value: @backup_config[:rsync_user], placeholder: "backup", class: "rn-input mt-1" %>
+          </div>
+          <div>
+            <label class="text-xs font-medium" style="color: var(--rn-text)">Remote Path</label>
+            <%= f.text_field :rsync_path, value: @backup_config[:rsync_path], placeholder: "backups/", class: "rn-input mt-1" %>
+          </div>
+        </div>
+      </div>
+
+      <%# Encryption %>
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">Encryption</h3>
+        <div>
+          <label class="text-xs font-medium" style="color: var(--rn-text)">Encryption Password</label>
+          <%= f.password_field :encrypt_password, value: @backup_config[:encrypt_password], placeholder: "Enter password", class: "rn-input mt-1" %>
+          <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Used for OpenSSL encryption of backup files</p>
+        </div>
+      </div>
+
+      <%# Cleanup %>
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">Cleanup</h3>
+        <div>
+          <label class="text-xs font-medium" style="color: var(--rn-text)">Auto Cleanup (days)</label>
+          <%= f.number_field :auto_cleanup_days, value: @backup_config[:auto_cleanup_days] || 30, class: "rn-input mt-1" %>
+          <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Delete backups older than this (0 = never)</p>
+        </div>
+      </div>
+
+      <%# Actions %>
+      <div class="flex items-center gap-3 pt-4" style="border-top: 1px solid var(--rn-border-light)">
+        <%= f.submit "Save Settings", class: "rn-btn rn-btn-primary" %>
+        <a href="<%= backup_path %>" class="rn-btn rn-btn-ghost">Cancel</a>
+      </div>
+    <% end %>
+  </div>
+
+  <%# ─── Current Status ──────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Current Status</h2>
+    </div>
+    <div class="p-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div>
+          <span style="color: var(--rn-text-muted)">Config File</span>
+          <p class="font-medium mt-1" style="color: var(--rn-text)"><%= @backup_config[:config_path] || "Not set" %></p>
+          <p class="mt-1"><span class="rn-badge <%= File.exist?(@backup_config[:config_path].to_s) ? 'rn-badge-success' : 'rn-badge-danger' %>"><%= File.exist?(@backup_config[:config_path].to_s) ? 'Exists' : 'Missing' %></span></p>
+        </div>
+        <div>
+          <span style="color: var(--rn-text-muted)">Models Dir</span>
+          <p class="font-medium mt-1" style="color: var(--rn-text)"><%= @backup_config[:models_path] || "Not set" %></p>
+          <p class="mt-1"><span class="rn-badge <%= Dir.exist?(@backup_config[:models_path].to_s) ? 'rn-badge-success' : 'rn-badge-danger' %>"><%= Dir.exist?(@backup_config[:models_path].to_s) ? 'Exists' : 'Missing' %></span></p>
+        </div>
+        <div>
+          <span style="color: var(--rn-text-muted)">Dump Dir</span>
+          <p class="font-medium mt-1" style="color: var(--rn-text)"><%= @backup_config[:dump_path] || "Not set" %></p>
+          <p class="mt-1"><span class="rn-badge <%= Dir.exist?(@backup_config[:dump_path].to_s) ? 'rn-badge-success' : 'rn-badge-danger' %>"><%= Dir.exist?(@backup_config[:dump_path].to_s) ? 'Exists' : 'Missing' %></span></p>
+        </div>
+        <div>
+          <span style="color: var(--rn-text-muted)">Config File</span>
+          <p class="font-medium mt-1" style="color: var(--rn-text)">config/rails_nexus_backup.yml</p>
+          <p class="mt-1"><span class="rn-badge <%= File.exist?(Rails.root.join('config', 'rails_nexus_backup.yml')) ? 'rn-badge-success' : 'rn-badge-muted' %>"><%= File.exist?(Rails.root.join('config', 'rails_nexus_backup.yml')) ? 'Saved' : 'Default' %></span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

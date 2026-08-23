@@ -1,0 +1,139 @@
+<% page_title t(".title", default: "Database Health") %>
+
+<div class="space-y-6">
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current">Database Health</span>
+  </nav>
+
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Database Health</h1>
+    <div class="flex items-center gap-2">
+      <% [7, 30, 90].each do |days| %>
+        <%= link_to "#{days}d", database_health_path(period: days),
+          class: "rn-btn rn-btn-xs #{params[:period].to_i == days ? 'rn-btn-primary' : 'rn-btn-ghost'}" %>
+      <% end %>
+    </div>
+  </div>
+
+  <%# ─── Summary Cards ──────────────────────────────────────── %>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="rn-card p-4">
+      <div class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Errors with Pool Data</div>
+      <div class="text-2xl font-bold mt-1" style="color: var(--rn-text)"><%= number_with_delimiter(@summary[:errors_with_pool]) %></div>
+      <div class="text-xs" style="color: var(--rn-text-muted)">of <%= @summary[:total_errors] %> total</div>
+    </div>
+    <div class="rn-card p-4">
+      <div class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Peak Utilization</div>
+      <div class="text-2xl font-bold mt-1" style="color: <%= @peak_utilization > 90 ? 'var(--rn-danger)' : @peak_utilization > 70 ? 'var(--rn-warning)' : 'var(--rn-success)' %>"><%= @peak_utilization %>%</div>
+    </div>
+    <div class="rn-card p-4">
+      <div class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Total Dead</div>
+      <div class="text-2xl font-bold mt-1" style="color: var(--rn-danger)"><%= @total_dead %></div>
+    </div>
+    <div class="rn-card p-4">
+      <div class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Total Waiting</div>
+      <div class="text-2xl font-bold mt-1" style="color: var(--rn-warning)"><%= @total_waiting %></div>
+    </div>
+  </div>
+
+  <%# ─── Live Pool ──────────────────────────────────────────── %>
+  <% if @live_pool && !@live_pool[:error] %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Live Connection Pool</h2>
+      </div>
+      <div class="p-4">
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Pool Size</div>
+            <div class="text-lg font-bold" style="color: var(--rn-text)"><%= @live_pool[:size] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Busy</div>
+            <div class="text-lg font-bold" style="color: var(--rn-info)"><%= @live_pool[:busy] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Idle</div>
+            <div class="text-lg font-bold" style="color: var(--rn-text-secondary)"><%= @live_pool[:idle] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Dead</div>
+            <div class="text-lg font-bold" style="color: var(--rn-danger)"><%= @live_pool[:dead] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Waiting</div>
+            <div class="text-lg font-bold" style="color: var(--rn-warning)"><%= @live_pool[:waiting] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Adapter</div>
+            <div class="text-lg font-bold" style="color: var(--rn-text)"><%= @live_pool[:adapter] %></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% elsif @live_pool && @live_pool[:error] %>
+    <div class="rn-card p-4">
+      <p class="text-sm" style="color: var(--rn-text-muted)">Live pool stats unavailable: <%= @live_pool[:error] %></p>
+    </div>
+  <% end %>
+
+  <%# ─── Connection Pool by Error ────────────────────────────── %>
+  <% if @pool_by_error&.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Connection Pool by Error</h2>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">High utilization during errors may indicate connection pool exhaustion or long-running queries.</p>
+      </div>
+      <div class="rn-table-wrap">
+        <table class="rn-table">
+          <thead>
+            <tr>
+              <th>Error</th>
+              <th>Error Type</th>
+              <th>Utilization</th>
+              <th>Busy</th>
+              <th>Idle</th>
+              <th>Dead</th>
+              <th>Waiting</th>
+              <th>Pool Size</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @pool_by_error.each do |error| %>
+              <tr>
+                <td>
+                  <%= link_to "##{error[:id]}", logged_exception_path(error[:id]),
+                    class: "text-xs font-medium", style: "color: var(--rn-primary)" %>
+                </td>
+                <td>
+                  <span class="rn-badge rn-badge-danger"><%= error[:exception_class] %></span>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="w-16 h-2 rounded-full overflow-hidden" style="background: var(--rn-bg-tertiary)">
+                      <div class="h-full rounded-full" style="width: <%= error[:utilization] %>% ; background: <%= error[:utilization] > 90 ? 'var(--rn-danger)' : error[:utilization] > 70 ? 'var(--rn-warning)' : 'var(--rn-success)' %>"></div>
+                    </div>
+                    <span class="text-xs font-medium" style="color: <%= error[:utilization] > 90 ? 'var(--rn-danger)' : error[:utilization] > 70 ? 'var(--rn-warning)' : 'var(--rn-text)' %>"><%= error[:utilization] %>%</span>
+                  </div>
+                </td>
+                <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= error[:busy] %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= error[:idle] %></span></td>
+                <td><span class="text-xs font-medium" style="color: <%= error[:dead] > 0 ? 'var(--rn-danger)' : 'var(--rn-text-muted)' %>"><%= error[:dead] %></span></td>
+                <td><span class="text-xs font-medium" style="color: <%= error[:waiting] > 0 ? 'var(--rn-warning)' : 'var(--rn-text-muted)' %>"><%= error[:waiting] %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= error[:pool_size] %></span></td>
+                <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= error[:last_seen]&.strftime("%b %d %H:%M") %></span></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% else %>
+    <div class="rn-card p-8 text-center">
+      <p class="text-sm" style="color: var(--rn-text-muted)">No connection pool data available yet. Pool stats are captured with each exception.</p>
+    </div>
+  <% end %>
+</div>

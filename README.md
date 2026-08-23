@@ -1,31 +1,85 @@
-# Faultline Rails
+# RailsNexus
 
-[![Gem Version](https://badge.fury.io/rb/faultline-rails.svg)](https://rubygems.org/gems/faultline-rails)
+### The extensible control plane for Rails applications
+
+[![Gem Version](https://badge.fury.io/rb/rails_nexus.svg)](https://rubygems.org/gems/rails_nexus)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa)](https://github.com/sponsors/tamiru)
 
-Faultline is a production-friendly exception dashboard for Rails 8. It records unhandled application exceptions and gives your team a fast, searchable view of messages, requests, environments, and backtraces.
+RailsNexus is an extensible operations and administration console for Rails applications. It provides everything you need to monitor, debug, and manage your Rails app in production — all from a single dashboard.
 
-The dashboard features a polished dark/light theme, keyboard shortcuts, tabbed detail view, stats overview, and webhook notifications.
+**One gem. All your ops.**
 
 ## Features
 
-- **Dark / Light theme** — Toggle with the sun/moon button or press `t`. Remembers preference in localStorage.
-- **Keyboard shortcuts** — Press `?` to see all shortcuts. Navigate with `j`/`k`, focus search with `/`, open details with `Enter`.
-- **Stats overview** — Total, weekly, today, and unique class counts at a glance.
-- **Advanced filters** — Exception type, controller, time range, and full-text search with debounced input.
-- **Tabbed detail view** — Overview, Backtrace, Request, Environment, and User Info tabs.
-- **Prev/Next navigation** — Navigate between exceptions without returning to the list.
-- **Copy to clipboard** — One-click copy for exception ID, message, and backtrace.
-- **Collapsible backtrace** — Long traces collapse automatically; expand on demand.
-- **Metadata grid** — Structured detail cards for exception class, controller, action, time, IP, and user agent.
-- **Page size selector** — Choose 25, 50, or 100 results per page.
-- **Active filter pills** — See and dismiss active filters with one click.
-- **RSS feed** — Subscribe to `/faultline/logged_exceptions/feed.rss`.
-- **Webhook notifications** — POST to Slack, Discord, or custom endpoints on each new exception.
-- **Telegram notifications** — Built-in notifier with rate limiting.
-- **Sidekiq middleware** — Automatically logs background job exceptions.
-- **Cleanup / Retention** — Auto-delete old exceptions via rake tasks.
-- **Structured logging** — JSON log output with request context and metadata.
+### 🚨 Error Monitoring
+- **Exception Dashboard** — Dark/light theme, keyboard shortcuts, tabbed detail view
+- **Cause Chains** — Track root cause through chained exceptions
+- **Breadcrumbs** — Activity trail leading up to each error
+- **Storm Protection** — Circuit breaker for error floods
+- **User Impact Ranking** — See which errors affect the most users
+- **Platform Detection** — iOS, Android, Web, and API with automatic categorization
+
+### 📊 Real-time Analytics
+- **Error Trends** — Hourly, daily, and weekly exception patterns
+- **Platform Health** — Per-platform error rates and response times
+- **Correlation Insights** — Time-based, controller-based, and user-based correlations
+- **Baseline Monitoring** — Detect anomalies against historical averages
+- **Occurrence Patterns** — Cyclical and burst detection
+- **N+1 Query Detection** — Automatic N+1 pattern identification
+
+### ⏰ Cron Job Monitoring
+- **Job Tracking** — Track scheduled job runs, failures, and history
+- **Success Rates** — Per-job and overall success metrics
+- **Execution Times** — Monitor job duration and detect slow jobs
+- **Cleanup** — Automatic old job record removal
+
+### 💾 Backup Management
+- **Backup Dashboard** — Health status, model listing, recent backups
+- **File Browser** — View all backup files with size, age, and format
+- **Trigger from UI** — Run backups directly from the dashboard
+- **Settings Editor** — Configure paths, thresholds, and notifications
+- **Health Monitoring** — Alerts when backups are stale or missing
+- **Cron Schedule** — View and manage backup schedules
+
+### 🖥️ Server Statistics
+- **Memory Usage** — RAM and swap monitoring
+- **CPU Metrics** — Load average and processor count
+- **Ruby/Rails Info** — Versions and runtime details
+- **Process Info** — Puma workers, thread counts
+- **Sidekiq Stats** — Queue sizes, workers, processed/failed
+
+### 🗄️ Database Health
+- **Connection Pool** — Live pool status and utilization
+- **Table Statistics** — Row counts, sizes, and growth
+- **Index Usage** — Index hit rates and missing indexes
+- **Slow Queries** — N+1 and slow query detection
+
+### 🔄 Workflow Management
+- **Assignment** — Assign exceptions to team members
+- **Priority** — Set critical/high/medium/low priority levels
+- **Snooze** — Temporarily silence exceptions (1h, 4h, 1d, 1w)
+- **Mute** — Permanently silence resolved exceptions
+- **Comments** — Add notes and status changes
+
+### 🔍 Source Code Integration
+- **Inline Source** — View source code directly in backtraces
+- **Git Blame** — See who wrote each line and when
+- **On-demand Loading** — AJAX-powered source fetching
+- **Security** — Path traversal protection, read-only access
+
+### 🔔 Notifications
+- **Webhooks** — POST to Slack, Discord, or custom endpoints
+- **Telegram** — Built-in notifier with rate limiting
+- **Sidekiq Middleware** — Automatic background job exception logging
+
+### 🛠️ Developer Experience
+- **Keyboard Shortcuts** — Full keyboard navigation (`/`, `j`, `k`, `Enter`, `?`)
+- **Dark/Light Theme** — Auto-detect or manual toggle, remembers preference
+- **Ransack Search** — Advanced search and filtering
+- **RSS Feed** — Subscribe to exception updates
+- **Cleanup/R retention** — Auto-delete old exceptions
+- **Structured Logging** — JSON log output with request context
+- **Tailwind-compatible** — Works with or without Tailwind CSS
 
 ## Requirements
 
@@ -35,36 +89,36 @@ The dashboard features a polished dark/light theme, keyboard shortcuts, tabbed d
 
 ## Installation
 
-Add Faultline to your application:
+Add RailsNexus to your application:
 
 ```ruby
 # Gemfile
-gem "faultline-rails"
+gem "rails_nexus"
 ```
 
 Run the install generator:
 
 ```bash
 bundle install
-bin/rails generate faultline:install
+bin/rails generate rails_nexus:install
 bin/rails db:migrate
 ```
 
 This will:
 1. Copy the database migration with proper indexes.
-2. Create a configuration initializer at `config/initializers/faultline.rb`.
+2. Create a configuration initializer at `config/initializers/rails_nexus.rb`.
 3. Mount the engine in your routes.
 4. Add `rescue_from Exception, with: :log_exception_handler` to `ApplicationController`.
 
-The dashboard is now available at `/faultline`.
+The dashboard is now available at `/rails_nexus`.
 
-### Modern UI setup
+### Optional UI customization
 
-Generate the polished dark/light theme with keyboard shortcuts:
+The mounted dashboard already includes its CSS, Turbo, and Stimulus controllers.
+To copy the UI into your host application for customization, run:
 
 ```bash
-bin/rails generate faultline:customize
-bin/rails stimulus:manifest:update
+bin/rails generate rails_nexus:customize
 ```
 
 This generates:
@@ -77,15 +131,15 @@ Options: `--layout-only`, `--views-only`, `--stimulus-only`, `--initializer-only
 
 ## Start logging exceptions
 
-Include `Faultline::ExceptionLoggable` in your application controller:
+Include `RailsNexus::ExceptionLoggable` in your application controller:
 
 ```ruby
 class ApplicationController < ActionController::Base
-  include Faultline::ExceptionLoggable
+  include RailsNexus::ExceptionLoggable
 end
 ```
 
-Faultline logs the exception and then re-raises it so Rails keeps its normal error handling.
+RailsNexus logs the exception and then re-raises it so Rails keeps its normal error handling.
 
 ### API controllers
 
@@ -93,19 +147,19 @@ For `ActionController::API` subclasses (e.g., API namespaces):
 
 ```ruby
 class Api::V1::BaseController < ActionController::API
-  include Faultline::ExceptionLoggable
+  include RailsNexus::ExceptionLoggable
 end
 ```
 
 ### Background jobs (Sidekiq)
 
-Faultline automatically logs Sidekiq job exceptions when the middleware is configured:
+RailsNexus automatically logs Sidekiq job exceptions when the middleware is configured:
 
 ```ruby
 # config/initializers/sidekiq.rb
 Sidekiq.configure_server do |config|
   config.server_middleware do |chain|
-    chain.add FaultlineSidekiqMiddleware
+    chain.add RailsNexusSidekiqMiddleware
   end
 end
 ```
@@ -117,9 +171,9 @@ The dashboard contains sensitive information. **Do not expose it to unauthentica
 By default, the dashboard returns `403 Forbidden` for all requests. Configure authentication:
 
 ```ruby
-# config/initializers/faultline.rb
+# config/initializers/rails_nexus.rb
 Rails.application.config.to_prepare do
-  Faultline.configure do |config|
+  RailsNexus.configure do |config|
     config.auth_block = lambda do |controller|
       controller.current_user&.admin?
     end
@@ -130,9 +184,9 @@ end
 ## Configuration
 
 ```ruby
-# config/initializers/faultline.rb
+# config/initializers/rails_nexus.rb
 Rails.application.config.to_prepare do
-  Faultline.configure do |config|
+  RailsNexus.configure do |config|
     # ─── General ─────────────────────────────────────────────
     config.application_name = "My App"       # Dashboard title
     config.per_page = 50                     # Items per page (default: 30)
@@ -187,7 +241,7 @@ Rails.application.config.to_prepare do
     # ─── Logging ─────────────────────────────────────────────
     config.logging_enabled = true
     config.log_level = :info                 # :debug, :info, :warn, :error, :fatal
-    config.log_file = "log/faultline.log"    # JSON log file (nil = none)
+    config.log_file = "log/rails_nexus.log"    # JSON log file (nil = none)
     config.log_backtrace = true
     config.log_params = true
     config.log_user_info = true
@@ -218,12 +272,16 @@ Press `?` in the dashboard to see all shortcuts:
 ## Search & Filter
 
 - **Exception Type** — Select dropdown, auto-submits on change
-- **Controller** — Select dropdown, auto-submits on change
+- **Source** — Exact controller/action filter
+- **Platform and Priority** — Narrow errors by client and workflow priority
+- **Status and Assignee** — Show active, muted, snoozed, or unassigned errors
+- **Occurrences** — Focus on repeatedly occurring fingerprints
 - **Time Range** — Today, 3 days, 7 days, 30 days
-- **Search** — Full-text search with 400ms debounce
+- **Search** — Search message, exception class, controller, and action with a 400ms debounce
+- **Sortable Columns** — Sort by exception, platform, source, message, count, workflow, or last seen
 - **Active Filters** — Pills with one-click dismiss
 
-All filters work with Ransack for advanced search, or fall back to built-in scopes.
+RailsNexus uses Ransack for filtering and sorting and Pagy for bounded, configurable pagination. Filter, sort, page-size, and page parameters are preserved across Turbo Frame updates.
 
 ## Notifications
 
@@ -246,7 +304,7 @@ POST JSON to each URL on every new exception:
   "action_name": "show",
   "message": "Something went wrong",
   "created_at": "2026-08-22T12:00:00Z",
-  "dashboard_url": "http://localhost:3000/faultline/logged_exceptions/42"
+  "dashboard_url": "http://localhost:3000/rails_nexus/logged_exceptions/42"
 }
 ```
 
@@ -263,7 +321,7 @@ Configure the notifier:
 
 ```ruby
 config.after_create = lambda do |exception|
-  Faultline::TelegramNotifier.new.notify(exception)
+  RailsNexus::TelegramNotifier.new.notify(exception)
 end
 ```
 
@@ -278,22 +336,22 @@ config.retention_days = 90  # Auto-delete after 90 days
 Rake tasks:
 
 ```bash
-rake faultline:cleanup          # Delete exceptions older than retention_days
-rake faultline:stats            # Show exception statistics
-rake faultline:tail             # Tail JSON logs in real-time
-rake faultline:export           # Export exceptions to JSON
-rake faultline:test_webhook     # Test webhook configuration
+rake rails_nexus:cleanup          # Delete exceptions older than retention_days
+rake rails_nexus:stats            # Show exception statistics
+rake rails_nexus:tail             # Tail JSON logs in real-time
+rake rails_nexus:export           # Export exceptions to JSON
+rake rails_nexus:test_webhook     # Test webhook configuration
 ```
 
 ## Frontend setup
 
 ### Hotwire (default)
 
-Faultline includes `turbo-rails` and `stimulus-rails` as dependencies. For Rails 8, no extra setup is needed.
+RailsNexus includes `importmap-rails`, `turbo-rails`, and `stimulus-rails` as dependencies. Its namespaced importmap is automatically composed into the host application, so no frontend installation step is needed.
 
 ### Styling
 
-Faultline ships with its own CSS (`faultline/dashboard.css`) that works out of the box with dark/light themes.
+RailsNexus ships with its own CSS (`rails_nexus/application.css`) that works out of the box with dark/light themes. The engine layout does not depend on the host application's stylesheet.
 
 #### Tailwind CSS
 
@@ -302,40 +360,29 @@ If your app uses Tailwind, add the gem's views as a source:
 ```css
 /* Tailwind v4 */
 @import "tailwindcss";
-@source "/path/to/faultline-rails/app/views";
+@source "/path/to/rails_nexus/app/views";
 ```
 
-#### Esbuild / Propshaft
+#### Asset pipelines
 
-The layout automatically detects your asset pipeline and loads `application.js`:
+The engine registers its JavaScript path and precompile assets automatically. Both Propshaft and Sprockets hosts can mount RailsNexus without changing the host asset manifest.
 
-```erb
-<% if defined?(Propshaft) || Rails.application.assets&.find_asset("application.js") %>
-  <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
-<% elsif respond_to?(:javascript_importmap_tags) %>
-  <%= javascript_importmap_tags %>
-<% end %>
-```
-
-#### Importmap
-
-Works automatically. Run `stimulus:manifest:update` to register the faultline controllers.
+The entry point is `rails_nexus/application`; it does not replace or depend on the host app's `application` entry point. Turbo and Stimulus are served locally from their Rails gems rather than from a CDN.
 
 ### Stimulus controllers
 
-Three controllers are included:
+Four controllers are included and registered by the engine's entry point:
 
 | Controller | Registered as | Purpose |
 |---|---|---|
-| `faultline_controller.js` | `faultline` | Keyboard nav, search, tabs, copy, backtrace expand |
-| `faultline_sidebar_controller.js` | `faultline-sidebar` | Mobile drawer toggle |
-| `faultline_theme_controller.js` | `faultline-theme` | Dark/light/auto theme toggle |
-
-Run `bin/rails stimulus:manifest:update` after installing to auto-register them.
+| `rails_nexus_controller.js` | `rails_nexus` | Keyboard nav, search, tabs, copy, backtrace expand |
+| `rails_nexus_detail_controller.js` | `rails_nexus-detail` | Exception detail interactions |
+| `rails_nexus_sidebar_controller.js` | `rails_nexus-sidebar` | Mobile drawer toggle |
+| `rails_nexus_theme_controller.js` | `rails_nexus-theme` | Dark/light/auto theme toggle |
 
 ## Data storage
 
-The engine creates a `faultline_logged_exceptions` table with columns for exception class, controller/action, message, backtrace, request, environment, user information, user agent, remote IP, and timestamps.
+The engine creates a `rails_nexus_exceptions` table with columns for exception class, controller/action, message, backtrace, request, environment, user information, user agent, remote IP, and timestamps.
 
 Exception records can contain secrets. Apply your normal database encryption, retention, backup, and access-control policies.
 
@@ -343,41 +390,41 @@ Exception records can contain secrets. Apply your normal database encryption, re
 
 | Generator | Description |
 |---|---|
-| `rails generate faultline:install` | Full setup (migration, initializer, routes) |
-| `rails generate faultline:install --modern` | Install + generate all customizations |
-| `rails generate faultline:customize` | Generate customizable views, layout, and JS |
-| `rails generate faultline:customize --layout-only` | Only the layout |
-| `rails generate faultline:customize --views-only` | Only the views |
-| `rails generate faultline:customize --stimulus-only` | Only the Stimulus controller |
+| `rails generate rails_nexus:install` | Full setup (migration, initializer, routes) |
+| `rails generate rails_nexus:install --modern` | Install + generate all customizations |
+| `rails generate rails_nexus:customize` | Generate customizable views, layout, and JS |
+| `rails generate rails_nexus:customize --layout-only` | Only the layout |
+| `rails generate rails_nexus:customize --views-only` | Only the views |
+| `rails generate rails_nexus:customize --stimulus-only` | Only the Stimulus controller |
 
 ## Development
 
 Run the test suite:
 
 ```bash
-cd /path/to/faultline-rails
+cd /path/to/rails_nexus
 RAILS_ENV=test bundle exec rails test
 ```
 
 Build the gem:
 
 ```bash
-gem build faultline-rails.gemspec
+gem build rails_nexus.gemspec
 ```
 
 The repository includes a Rails dummy application under `test/dummy` for engine integration testing.
 
 ## Support
 
-If you find Faultline useful, consider supporting the project:
+If you find RailsNexus useful, consider supporting the project:
 
-- ⭐ **Star the repo** — Help others discover Faultline
+- ⭐ **Star the repo** — Help others discover RailsNexus
 - 🐛 **Report issues** — Help improve the gem
 - 💡 **Contribute** — Submit pull requests
 - 💰 **Sponsor** — [GitHub Sponsors](https://github.com/sponsors/tamiru)
 
-Your support helps maintain and improve Faultline for the Rails community.
+Your support helps maintain and improve RailsNexus for the Rails community.
 
 ## License
 
-Faultline Rails is released under the [MIT License](MIT-LICENSE).
+RailsNexus is released under the [MIT License](MIT-LICENSE).

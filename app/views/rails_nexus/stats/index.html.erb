@@ -1,0 +1,569 @@
+<% page_title t(".title", default: "Server Statistics") %>
+
+<div class="space-y-6">
+  <%# ─── Header ──────────────────────────────────────────────── %>
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current">Server Statistics</span>
+  </nav>
+
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Server Statistics</h1>
+    <button type="button" class="rn-btn rn-btn-ghost rn-btn-sm"
+      data-action="click->rails_nexus#refreshStats"
+      title="Refresh stats">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <%# ─── System Overview Cards ──────────────────────────────── %>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <%# Memory Card %>
+    <div class="rn-card">
+      <div class="p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--rn-primary-light)">
+            <svg class="w-4 h-4" style="color: var(--rn-primary)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+          </div>
+          <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Memory</span>
+        </div>
+        <div class="text-2xl font-bold" style="color: var(--rn-text)"><%= @system_stats[:memory][:used_mb] %> MB</div>
+        <div class="mt-1 text-xs" style="color: var(--rn-text-muted)">
+          of <%= @system_stats[:memory][:total_mb] %> MB total
+        </div>
+        <div class="mt-2 h-2 rounded-full overflow-hidden" style="background: var(--rn-bg-tertiary)">
+          <div class="h-full rounded-full transition-all duration-300" style="width: <%= @system_stats[:memory][:usage_percent] %>% ; background: <%= @system_stats[:memory][:usage_percent] > 80 ? 'var(--rn-danger)' : @system_stats[:memory][:usage_percent] > 60 ? 'var(--rn-warning)' : 'var(--rn-success)' %>"></div>
+        </div>
+        <div class="mt-1 text-xs" style="color: var(--rn-text-muted)"><%= @system_stats[:memory][:usage_percent] %>% used</div>
+      </div>
+    </div>
+
+    <%# CPU Card %>
+    <div class="rn-card">
+      <div class="p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--rn-warning-light)">
+            <svg class="w-4 h-4" style="color: var(--rn-warning)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+          </div>
+          <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">CPU Load</span>
+        </div>
+        <div class="text-2xl font-bold" style="color: var(--rn-text)"><%= @system_stats[:cpu][:load_1m] %></div>
+        <div class="mt-1 text-xs" style="color: var(--rn-text-muted)">
+          <%= @system_stats[:cpu][:load_5m] %> / <%= @system_stats[:cpu][:load_15m] %> (5m/15m)
+        </div>
+        <div class="mt-2 text-xs" style="color: var(--rn-text-muted)">
+          <%= @system_stats[:cpu][:cores] %> core<%= @system_stats[:cpu][:cores] == 1 ? '' : 's' %>
+        </div>
+      </div>
+    </div>
+
+    <%# Disk Card %>
+    <div class="rn-card">
+      <div class="p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--rn-success-light)">
+            <svg class="w-4 h-4" style="color: var(--rn-success)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+            </svg>
+          </div>
+          <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Disk</span>
+        </div>
+        <div class="text-2xl font-bold" style="color: var(--rn-text)"><%= @system_stats[:disk][:used_gb] %> GB</div>
+        <div class="mt-1 text-xs" style="color: var(--rn-text-muted)">
+          of <%= @system_stats[:disk][:total_gb] %> GB total
+        </div>
+        <div class="mt-2 h-2 rounded-full overflow-hidden" style="background: var(--rn-bg-tertiary)">
+          <div class="h-full rounded-full transition-all duration-300" style="width: <%= @system_stats[:disk][:usage_percent] %>% ; background: <%= @system_stats[:disk][:usage_percent] > 90 ? 'var(--rn-danger)' : @system_stats[:disk][:usage_percent] > 70 ? 'var(--rn-warning)' : 'var(--rn-success)' %>"></div>
+        </div>
+        <div class="mt-1 text-xs" style="color: var(--rn-text-muted)"><%= @system_stats[:disk][:usage_percent] %>% used</div>
+      </div>
+    </div>
+
+    <%# Exceptions Card %>
+    <div class="rn-card">
+      <div class="p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--rn-danger-light)">
+            <svg class="w-4 h-4" style="color: var(--rn-danger)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Exceptions</span>
+        </div>
+        <div class="text-2xl font-bold" style="color: var(--rn-text)"><%= @exception_stats[:total] %></div>
+        <div class="mt-1 text-xs" style="color: var(--rn-text-muted)">
+          <%= @exception_stats[:today] %> today
+        </div>
+        <div class="mt-2 text-xs" style="color: var(--rn-text-muted)">
+          <%= @exception_stats[:unique_classes] %> unique types
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Environment Details ─────────────────────────────────── %>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <%# Ruby & Rails Info %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Environment</h2>
+      </div>
+      <div class="p-4 space-y-3">
+        <div class="flex justify-between text-sm">
+          <span style="color: var(--rn-text-muted)">Ruby Version</span>
+          <span class="font-medium rn-mono" style="color: var(--rn-text)"><%= @ruby_stats[:ruby_version] %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span style="color: var(--rn-text-muted)">Platform</span>
+          <span class="font-medium rn-mono" style="color: var(--rn-text)"><%= @ruby_stats[:ruby_platform] %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span style="color: var(--rn-text-muted)">Rails Version</span>
+          <span class="font-medium rn-mono" style="color: var(--rn-text)"><%= @ruby_stats[:rails_version] %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span style="color: var(--rn-text-muted)">Environment</span>
+          <span class="rn-badge rn-badge-<%= Rails.env.production? ? 'danger' : 'info' %>"><%= @ruby_stats[:environment] %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span style="color: var(--rn-text-muted)">Database Adapter</span>
+          <span class="font-medium rn-mono" style="color: var(--rn-text)"><%= @ruby_stats[:database_adapter] %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span style="color: var(--rn-text-muted)">RailsNexus Version</span>
+          <span class="font-medium rn-mono" style="color: var(--rn-text)"><%= @ruby_stats[:rails_nexus_version] %></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span style="color: var(--rn-text-muted)">Timezone</span>
+          <span class="font-medium" style="color: var(--rn-text)"><%= @ruby_stats[:timezone] %></span>
+        </div>
+      </div>
+    </div>
+
+    <%# Sidekiq Stats %>
+    <% if @sidekiq_stats && !@sidekiq_stats[:error] %>
+      <div class="rn-card">
+        <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Sidekiq</h2>
+        </div>
+        <div class="p-4 space-y-3">
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--rn-text-muted)">Processed</span>
+            <span class="font-medium" style="color: var(--rn-success)"><%= number_with_delimiter(@sidekiq_stats[:processed]) %></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--rn-text-muted)">Failed</span>
+            <span class="font-medium" style="color: var(--rn-danger)"><%= number_with_delimiter(@sidekiq_stats[:failed]) %></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--rn-text-muted)">Enqueued</span>
+            <span class="font-medium" style="color: var(--rn-text)"><%= number_with_delimiter(@sidekiq_stats[:enqueued]) %></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--rn-text-muted)">Workers</span>
+            <span class="font-medium" style="color: var(--rn-text)"><%= @sidekiq_stats[:workers] %></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--rn-text-muted)">Retry Queue</span>
+            <span class="font-medium" style="color: var(--rn-warning)"><%= @sidekiq_stats[:retry_size] %></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--rn-text-muted)">Scheduled</span>
+            <span class="font-medium" style="color: var(--rn-text)"><%= @sidekiq_stats[:scheduled_size] %></span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span style="color: var(--rn-text-muted)">Redis Memory</span>
+            <span class="font-medium rn-mono" style="color: var(--rn-text)"><%= @sidekiq_stats[:redis_memory_mb] %> MB</span>
+          </div>
+        </div>
+      </div>
+    <% elsif @sidekiq_stats && @sidekiq_stats[:error] %>
+      <div class="rn-card">
+        <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Sidekiq</h2>
+        </div>
+        <div class="p-4">
+          <p class="text-sm" style="color: var(--rn-text-muted)">Not available: <%= @sidekiq_stats[:error] %></p>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <%# ─── Process Info ─────────────────────────────────────────── %>
+  <div class="rn-card">
+    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Process Information</h2>
+    </div>
+    <div class="p-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <div class="text-xs" style="color: var(--rn-text-muted)">PID</div>
+          <div class="text-sm font-medium rn-mono" style="color: var(--rn-text)"><%= @system_stats[:process][:pid] %></div>
+        </div>
+        <div>
+          <div class="text-xs" style="color: var(--rn-text-muted)">Parent PID</div>
+          <div class="text-sm font-medium rn-mono" style="color: var(--rn-text)"><%= @system_stats[:process][:ppid] %></div>
+        </div>
+        <div>
+          <div class="text-xs" style="color: var(--rn-text-muted)">Threads</div>
+          <div class="text-sm font-medium" style="color: var(--rn-text)"><%= @system_stats[:process][:thread_count] %></div>
+        </div>
+        <div>
+          <div class="text-xs" style="color: var(--rn-text-muted)">Open Files</div>
+          <div class="text-sm font-medium" style="color: var(--rn-text)"><%= @system_stats[:process][:open_files] %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%# ─── Storm Protection ──────────────────────────────────── %>
+  <% if @storm_stats && @storm_stats[:enabled] %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: <%= @storm_stats[:circuit_open] ? 'var(--rn-danger-light)' : 'var(--rn-success-light)' %>">
+            <svg class="w-4 h-4" style="color: <%= @storm_stats[:circuit_open] ? 'var(--rn-danger)' : 'var(--rn-success)' %>" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Storm Protection</h2>
+            <p class="text-xs" style="color: var(--rn-text-muted)">
+              Circuit breaker: <%= @storm_stats[:circuit_open] ? 'OPEN (shedding errors)' : 'Closed (capturing all)' %>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Status</div>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="w-2 h-2 rounded-full" style="background: <%= @storm_stats[:circuit_open] ? 'var(--rn-danger)' : 'var(--rn-success)' %>"></span>
+              <span class="text-sm font-medium" style="color: var(--rn-text)"><%= @storm_stats[:circuit_open] ? 'Storm Active' : 'Normal' %></span>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Errors/sec</div>
+            <div class="text-lg font-bold" style="color: var(--rn-text)"><%= @storm_stats[:errors_this_second] %></div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">threshold: <%= @storm_stats[:threshold] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Captured</div>
+            <div class="text-lg font-bold" style="color: var(--rn-success)"><%= @storm_stats[:total_captured] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Shed</div>
+            <div class="text-lg font-bold" style="color: var(--rn-danger)"><%= @storm_stats[:total_shed] %></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Database Health ─────────────────────────────────────── %>
+  <% if @database_stats && !@database_stats[:error] %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--rn-info-light)">
+            <svg class="w-4 h-4" style="color: var(--rn-info)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Database Health</h2>
+            <p class="text-xs" style="color: var(--rn-text-muted)"><%= @database_stats[:adapter] %> · <%= @database_stats[:version]&.truncate(60) %></p>
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <%# Connection Stats %>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Ping</div>
+            <div class="text-lg font-bold rn-mono" style="color: <%= @database_stats[:ping_ms] > 100 ? 'var(--rn-danger)' : @database_stats[:ping_ms] > 50 ? 'var(--rn-warning)' : 'var(--rn-success)' %>">
+              <%= @database_stats[:ping_ms] %>ms
+            </div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Active Connections</div>
+            <div class="text-lg font-bold" style="color: var(--rn-text)">
+              <%= @database_stats[:active_connections] %>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Pool Size</div>
+            <div class="text-lg font-bold" style="color: var(--rn-text)">
+              <%= @database_stats[:pool_connections] %>/<%= @database_stats[:pool_size] %>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Uptime</div>
+            <div class="text-lg font-bold" style="color: var(--rn-text)">
+              <%= @database_stats[:uptime] %>
+            </div>
+          </div>
+        </div>
+
+        <%# Table Stats %>
+        <% if @database_stats[:tables]&.any? %>
+          <div class="border-t pt-4" style="border-color: var(--rn-border-light)">
+            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">RailsNexus Tables</h3>
+            <div class="rn-table-wrap">
+              <table class="rn-table">
+                <thead>
+                  <tr>
+                    <th>Table</th>
+                    <th>Rows</th>
+                    <th>Size</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% @database_stats[:tables].each do |table| %>
+                    <tr>
+                      <td>
+                        <span class="rn-mono text-sm" style="color: var(--rn-text-secondary)"><%= table[:name] %></span>
+                      </td>
+                      <td>
+                        <span class="font-medium" style="color: var(--rn-text)"><%= number_with_delimiter(table[:row_count]) %></span>
+                      </td>
+                      <td>
+                        <span class="text-sm" style="color: var(--rn-text-muted)">
+                          <%= table[:size_mb] > 0 ? "#{table[:size_mb]} MB" : "—" %>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="rn-badge rn-badge-<%= table[:status] == 'active' ? 'success' : 'muted' %>">
+                          <%= table[:status].capitalize %>
+                        </span>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% elsif @database_stats && @database_stats[:error] %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Database Health</h2>
+      </div>
+      <div class="p-4">
+        <p class="text-sm" style="color: var(--rn-danger)"><%= @database_stats[:error] %></p>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Backup Health ──────────────────────────────────────── %>
+  <% if @backup_stats && @backup_stats[:detected] %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--rn-info-light)">
+            <svg class="w-4 h-4" style="color: var(--rn-info)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Backup Status</h2>
+            <p class="text-xs" style="color: var(--rn-text-muted)"><%= @backup_stats[:gem] %> <%= @backup_stats[:version] ? "v#{@backup_stats[:version]}" : '' %></p>
+          </div>
+        </div>
+      </div>
+      <div class="p-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Status</div>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="w-2 h-2 rounded-full" style="background: <%= case @backup_stats[:status]
+                when 'healthy' then 'var(--rn-success)'
+                when 'warning' then 'var(--rn-warning)'
+                when 'stale' then 'var(--rn-danger)'
+                when 'configured' then 'var(--rn-info)'
+                else 'var(--rn-text-muted)'
+                end %>"></span>
+              <span class="text-sm font-medium" style="color: var(--rn-text)"><%= @backup_stats[:status].capitalize %></span>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Last Backup</div>
+            <div class="text-sm font-medium mt-1" style="color: var(--rn-text)">
+              <% if @backup_stats[:last_backup] %>
+                <%= @backup_stats[:last_backup].strftime("%b %d, %Y %I:%M %p") %>
+              <% else %>
+                <span style="color: var(--rn-text-muted)">Unknown</span>
+              <% end %>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Tool</div>
+            <div class="text-sm font-medium mt-1" style="color: var(--rn-text)"><%= @backup_stats[:gem] %></div>
+          </div>
+          <div>
+            <div class="text-xs" style="color: var(--rn-text-muted)">Config</div>
+            <div class="text-sm font-medium mt-1" style="color: var(--rn-text)">
+              <%= @backup_stats[:status] == 'configured' || @backup_stats[:status] == 'scheduled' ? 'Yes' : 'No' %>
+            </div>
+          </div>
+        </div>
+
+        <%# Backup Details %>
+        <% if @backup_stats[:details].any? %>
+          <div class="border-t pt-4" style="border-color: var(--rn-border-light)">
+            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">Details</h3>
+            <div class="space-y-2">
+              <% @backup_stats[:details].each do |key, value| %>
+                <% next if value.is_a?(Hash) && value.empty? %>
+                <div class="flex items-start gap-3 text-sm">
+                  <span class="rn-mono font-medium" style="color: var(--rn-text-secondary); min-width: 120px"><%= key.to_s.humanize %>:</span>
+                  <% if value.is_a?(Array) %>
+                    <div class="flex-1">
+                      <% value.each do |item| %>
+                        <div class="text-xs" style="color: var(--rn-text-muted)">
+                          <% if item.is_a?(Hash) %>
+                            <%= item[:name] %> <%= item[:schedule] ? "(#{item[:schedule]})" : '' %>
+                          <% else %>
+                            <%= item %>
+                          <% end %>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% elsif value.is_a?(Hash) %>
+                    <div class="flex-1">
+                      <% value.each do |k, v| %>
+                        <div class="text-xs" style="color: var(--rn-text-muted)"><%= k %>: <%= v %></div>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <span class="flex-1 text-xs" style="color: var(--rn-text-muted)"><%= value %></span>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% elsif @backup_stats && !@backup_stats[:detected] %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Backup Status</h2>
+      </div>
+      <div class="p-4">
+        <p class="text-sm" style="color: var(--rn-text-muted)">No backup solution detected. Consider adding a backup gem like <code class="rn-mono text-xs" style="background: var(--rn-bg-secondary); padding: 2px 6px; border-radius: 4px">backup</code> or configuring <code class="rn-mono text-xs" style="background: var(--rn-bg-secondary); padding: 2px 6px; border-radius: 4px">pg_dump</code>/<code class="rn-mono text-xs" style="background: var(--rn-bg-secondary); padding: 2px 6px; border-radius: 4px">mysqldump</code>.</p>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Platform Breakdown ──────────────────────────────────── %>
+  <% if @platform_stats && @platform_stats[:breakdown]&.any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--rn-info-light)">
+            <svg class="w-4 h-4" style="color: var(--rn-info)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+            </svg>
+          </div>
+          <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Platform Breakdown</h2>
+        </div>
+      </div>
+      <div class="p-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <% total = @platform_stats[:breakdown]&.sum(&:total) || 1 %>
+          <% [
+            { key: "web", label: "Web", icon: "🌐", color: "var(--rn-primary)" },
+            { key: "ios", label: "iOS", icon: "📱", color: "var(--rn-success)" },
+            { key: "android", label: "Android", icon: "🤖", color: "var(--rn-warning)" },
+            { key: "api", label: "API", icon: "⚡", color: "var(--rn-info)" },
+            { key: "bot", label: "Bots", icon: "🕷️", color: "var(--rn-text-muted)" }
+          ].each do |platform| %>
+            <% stats = @platform_stats[platform[:key].to_sym] %>
+            <% count = stats&.total || 0 %>
+            <% pct = total > 0 ? (count.to_f / total * 100).round(1) : 0 %>
+            <div class="p-3 rounded-lg text-center" style="background: var(--rn-bg-secondary)">
+              <div class="text-2xl mb-1"><%= platform[:icon] %></div>
+              <div class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)"><%= platform[:label] %></div>
+              <div class="text-xl font-bold mt-1" style="color: <%= platform[:color] %>"><%= number_with_delimiter(count) %></div>
+              <div class="text-xs" style="color: var(--rn-text-muted)"><%= pct %>%</div>
+              <% if stats %>
+                <div class="text-xs mt-1" style="color: var(--rn-text-muted)"><%= stats.unique_classes %> types</div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <%# Platform bar chart %>
+        <div class="mt-6">
+          <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--rn-text-muted)">Distribution</h3>
+          <div class="flex rounded-full overflow-hidden" style="height: 8px">
+            <% [
+              { key: "web", color: "var(--rn-primary)" },
+              { key: "ios", color: "var(--rn-success)" },
+              { key: "android", color: "var(--rn-warning)" },
+              { key: "api", color: "var(--rn-info)" },
+              { key: "bot", color: "var(--rn-text-muted)" }
+            ].each do |platform| %>
+              <% stats = @platform_stats[platform[:key].to_sym] %>
+              <% pct = total > 0 ? ((stats&.total || 0).to_f / total * 100) : 0 %>
+              <% if pct > 0 %>
+                <div style="width: <%= pct %>% ; background: <%= platform[:color] %>" title="<%= platform[:key].capitalize %>: <%= number_with_delimiter(stats&.total || 0) %>"></div>
+              <% end %>
+            <% end %>
+          </div>
+          <div class="flex justify-between mt-2">
+            <% [
+              { key: "web", label: "Web", color: "var(--rn-primary)" },
+              { key: "ios", label: "iOS", color: "var(--rn-success)" },
+              { key: "android", label: "Android", color: "var(--rn-warning)" },
+              { key: "api", label: "API", color: "var(--rn-info)" },
+              { key: "bot", label: "Bot", color: "var(--rn-text-muted)" }
+            ].each do |platform| %>
+              <% if @platform_stats[platform[:key].to_sym] %>
+                <div class="flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full" style="background: <%= platform[:color] %>"></span>
+                  <span class="text-xs" style="color: var(--rn-text-muted)"><%= platform[:label] %></span>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ─── Exception Trend ─────────────────────────────────────── %>
+  <% if @exception_stats[:hourly_trend].any? %>
+    <div class="rn-card">
+      <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
+        <h2 class="text-sm font-semibold" style="color: var(--rn-text)">Exception Trend (24h)</h2>
+      </div>
+      <div class="p-4">
+        <div class="flex items-end gap-1" style="height: 120px">
+          <% max_count = @exception_stats[:hourly_trend].map { |h| h[:count] }.max || 1 %>
+          <% @exception_stats[:hourly_trend].each do |hour_data| %>
+            <div class="flex-1 flex flex-col items-center gap-1">
+              <div class="w-full rounded-t transition-all duration-300"
+                   style="height: <%= [(hour_data[:count].to_f / max_count * 100), 2].max %>% ; min-height: 2px; background: var(--rn-primary); opacity: 0.8">
+              </div>
+              <span class="text-[10px]" style="color: var(--rn-text-muted)"><%= hour_data[:hour].split(":").first %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>
