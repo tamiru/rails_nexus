@@ -8,16 +8,6 @@ module RailsNexus
     class InstallGenerator < Rails::Generators::Base
       include Rails::Generators::Migration
 
-      MIGRATIONS = {
-        "migration.rb" => "create_rails_nexus_exceptions.rb",
-        "migration_advanced_features.rb" => "add_advanced_features_to_rails_nexus_exceptions.rb",
-        "migration_platform_detection.rb" => "add_platform_to_rails_nexus_exceptions.rb",
-        "migration_workflow.rb" => "add_workflow_to_rails_nexus.rb",
-        "migration_cron_jobs.rb" => "create_rails_nexus_cron_jobs.rb",
-        "migration_webhook_deliveries.rb" => "create_rails_nexus_webhook_deliveries.rb",
-        "migration_new_schema.rb" => "create_rails_nexus_metrics_tables.rb"
-      }.freeze
-
       source_root File.expand_path("templates", __dir__)
       desc "Install RailsNexus into your Rails application"
 
@@ -26,9 +16,7 @@ module RailsNexus
       end
 
       def create_migration_files
-        MIGRATIONS.each do |source, destination|
-          migration_template source, "db/migrate/#{destination}"
-        end
+        migration_template "migration.rb", "db/migrate/create_rails_nexus_tables.rb"
       end
 
       def create_initializer

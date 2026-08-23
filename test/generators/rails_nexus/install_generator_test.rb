@@ -27,17 +27,7 @@ class RailsNexus::Generators::InstallGeneratorTest < Rails::Generators::TestCase
   test "generates the complete RailsNexus installation" do
     run_generator
 
-    %w[
-      create_rails_nexus_exceptions
-      add_advanced_features_to_rails_nexus_exceptions
-      add_platform_to_rails_nexus_exceptions
-      add_workflow_to_rails_nexus
-      create_rails_nexus_cron_jobs
-      create_rails_nexus_webhook_deliveries
-      create_rails_nexus_metrics_tables
-    ].each do |migration|
-      assert_migration "db/migrate/#{migration}.rb"
-    end
+    assert_migration "db/migrate/create_rails_nexus_tables.rb"
 
     assert_file "config/initializers/rails_nexus.rb" do |content|
       assert_match(/RailsNexus\.configure/, content)
