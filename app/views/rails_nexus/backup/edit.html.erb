@@ -1,0 +1,15 @@
+<% page_title "Edit #{@config.name}" %>
+
+<div class="space-y-6">
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <a href="<%= backup_path %>" class="rn-breadcrumb">Backups</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current">Edit <%= @config.name %></span>
+  </nav>
+
+  <h1 class="text-2xl font-bold" style="color: var(--rn-text)">Edit: <%= @config.name %></h1>
+
+  <%= render "form" %>
+</div>

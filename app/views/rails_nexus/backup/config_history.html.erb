@@ -1,4 +1,4 @@
-<% page_title t(".title", default: "Backup Files") %>
+<% page_title "History: #{@config.name}" %>
 
 <div class="space-y-6">
   <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
@@ -6,44 +6,44 @@
     <span class="rn-breadcrumb-sep">/</span>
     <a href="<%= backup_path %>" class="rn-breadcrumb">Backups</a>
     <span class="rn-breadcrumb-sep">/</span>
-    <span class="rn-breadcrumb-current">Files</span>
+    <span class="rn-breadcrumb-current"><%= @config.name %> History</span>
   </nav>
 
-  <div class="rn-card">
-    <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
-      <h2 class="text-sm font-semibold" style="color: var(--rn-text)">All Backup Records</h2>
-      <p class="text-xs mt-1" style="color: var(--rn-text-muted)">Complete history of backup runs</p>
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold" style="color: var(--rn-text)">History: <%= @config.name %></h1>
+    <div class="flex gap-2">
+      <%= button_to "Run Backup", backup_trigger_path(@config),
+        method: :post,
+        class: "rn-btn rn-btn-primary",
+        data: { turbo_confirm: "Run #{@config.name} backup now?" } %>
+      <%= link_to "Edit Config", edit_backup_path(@config), class: "rn-btn rn-btn-ghost" %>
     </div>
+  </div>
 
+  <div class="rn-card">
     <% if @records.any? %>
       <div class="rn-table-wrap">
         <table class="rn-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Model</th>
               <th>Status</th>
               <th>File</th>
               <th>Size</th>
               <th>Duration</th>
               <th>Triggered By</th>
-              <th>Started</th>
-              <th></th>
+              <th>Time</th>
+              <th>Error</th>
             </tr>
           </thead>
           <tbody>
             <% @records.each do |record| %>
               <tr>
-                <td><span class="text-xs rn-mono" style="color: var(--rn-text-muted)">#<%= record.id %></span></td>
-                <td><span class="font-medium" style="color: var(--rn-text)"><%= record.model_name %></span></td>
                 <td>
                   <span class="rn-badge rn-badge-<%= record.status == 'success' ? 'success' : record.status == 'failed' ? 'danger' : 'warning' %>">
                     <%= record.status.capitalize %>
                   </span>
                 </td>
-                <td>
-                  <span class="text-xs rn-mono" style="color: var(--rn-text-secondary)"><%= record.file_path ? File.basename(record.file_path) : "—" %></span>
-                </td>
+                <td><span class="text-xs rn-mono" style="color: var(--rn-text-secondary)"><%= record.file_path ? File.basename(record.file_path) : "—" %></span></td>
                 <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.file_size ? number_to_human_size(record.file_size) : "—" %></span></td>
                 <td><span class="text-xs" style="color: var(--rn-text-secondary)"><%= record.duration ? "#{record.duration.round(1)}s" : "—" %></span></td>
                 <td><span class="text-xs" style="color: var(--rn-text-muted)"><%= record.triggered_by || "—" %></span></td>
@@ -60,7 +60,7 @@
       </div>
     <% else %>
       <div class="p-8 text-center">
-        <p class="text-sm" style="color: var(--rn-text-muted)">No backup records found.</p>
+        <p class="text-sm" style="color: var(--rn-text-muted)">No backups recorded for this config yet.</p>
       </div>
     <% end %>
   </div>
