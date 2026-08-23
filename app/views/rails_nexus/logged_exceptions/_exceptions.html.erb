@@ -1,4 +1,4 @@
-<div id="exceptions-content" class="rn-card overflow-hidden">
+<div id="exceptions-content" class="rn-exceptions-results overflow-hidden">
   <% if @exceptions.empty? %>
     <div class="py-16 text-center">
       <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto" style="background: var(--rn-success-light)">
@@ -38,7 +38,7 @@
 
       <div class="rn-exceptions-toolbar-actions">
         <%# Keyboard hint %>
-        <span class="text-xs flex items-center gap-1" style="color: var(--rn-text-muted)">
+        <span class="rn-shortcuts-hint text-xs flex items-center gap-1" style="color: var(--rn-text-muted)">
           <span class="rn-kbd">?</span> shortcuts
         </span>
 
@@ -58,11 +58,7 @@
         <caption class="sr-only">Logged application exceptions</caption>
         <thead>
           <tr>
-            <th class="rn-col-severity"><span class="sr-only">Severity</span></th>
             <th class="rn-col-exception <%= sort_header_class(:exception_class) %>"><%= sort_link @q, :exception_class, "Exception" %></th>
-            <% if exception_feature?(:platform) %>
-              <th class="rn-col-platform <%= sort_header_class(:platform) %>"><%= sort_link @q, :platform, "Platform" %></th>
-            <% end %>
             <th class="rn-col-source <%= sort_header_class(:controller_name) %>"><%= sort_link @q, :controller_name, "Source" %></th>
             <th class="rn-col-message <%= sort_header_class(:message) %>"><%= sort_link @q, :message, "Message" %></th>
             <% if exception_feature?(:occurrence_count) %>
@@ -70,9 +66,6 @@
             <% else %>
               <th class="rn-col-count">Count</th>
             <% end %>
-            <th class="rn-col-workflow <%= sort_header_class(:priority) if exception_feature?(:priority) && exception_searchable?(:priority) %>">
-              <%= exception_feature?(:priority) && exception_searchable?(:priority) ? sort_link(@q, :priority, "Workflow") : "Workflow" %>
-            </th>
             <th class="rn-col-time <%= sort_header_class(:created_at) %>"><%= sort_link @q, :created_at, "Last Seen" %></th>
             <th class="rn-col-actions"><span class="sr-only">Actions</span></th>
           </tr>
@@ -88,27 +81,18 @@
                 data-index="<%= index %>"
                 data-rails_nexus-index-param="<%= index %>">
 
-              <%# Severity indicator dot %>
-              <td class="rn-col-severity">
-                <span class="rn-severity-dot rn-severity-<%= severity_for(exception) %>" aria-hidden="true"></span>
-              </td>
-
-              <%# Exception class with severity badge %>
+              <%# Exception class with severity indicator %>
               <td class="rn-col-exception">
-                <span class="rn-exception-name" title="<%= exception.exception_class %>"><%= exception.exception_class %></span>
-                <% if exception.respond_to?(:fingerprint) && exception.fingerprint.present? %>
-                  <span class="rn-row-meta rn-mono" title="Fingerprint <%= exception.fingerprint %>">#<%= exception.fingerprint.first(10) %></span>
-                <% end %>
+                <div class="rn-exception-cell">
+                  <span class="rn-severity-dot rn-severity-<%= severity_for(exception) %>" aria-hidden="true"></span>
+                  <div class="min-w-0">
+                    <span class="rn-exception-name" title="<%= exception.exception_class %>"><%= exception.exception_class %></span>
+                    <% if exception.respond_to?(:fingerprint) && exception.fingerprint.present? %>
+                      <span class="rn-row-meta rn-mono" title="Fingerprint <%= exception.fingerprint %>">#<%= exception.fingerprint.first(10) %></span>
+                    <% end %>
+                  </div>
+                </div>
               </td>
-
-              <%# Platform badge %>
-              <% if exception_feature?(:platform) %>
-                <td class="rn-col-platform">
-                  <span class="rn-badge rn-badge-<%= exception.platform == 'ios' ? 'success' : exception.platform == 'android' ? 'warning' : exception.platform == 'api' ? 'info' : exception.platform == 'bot' ? 'muted' : 'primary' %>">
-                    <%= exception.platform&.upcase || 'WEB' %>
-                  </span>
-                </td>
-              <% end %>
 
               <%# Source (controller + action) %>
               <td class="rn-col-source">
@@ -130,22 +114,6 @@
               <%# Occurrence count %>
               <td class="rn-col-count">
                 <span class="rn-occurrence-count" title="<%= pluralize(exception_occurrence_count(exception), 'occurrence') %>"><%= number_with_delimiter(exception_occurrence_count(exception)) %></span>
-              </td>
-
-              <%# Workflow indicators %>
-              <td class="rn-col-workflow">
-                <% status_label, status_style = exception_status(exception) %>
-                <div class="rn-workflow-state">
-                  <span class="rn-badge rn-badge-xs rn-badge-<%= status_style %>"><%= status_label %></span>
-                  <% if exception.respond_to?(:priority) && exception.priority.present? %>
-                    <span class="rn-badge rn-badge-xs rn-badge-<%= exception.priority == 'critical' ? 'danger' : exception.priority == 'high' ? 'warning' : exception.priority == 'medium' ? 'info' : 'muted' %>"><%= exception.priority.upcase %></span>
-                  <% end %>
-                  <% if exception.respond_to?(:assigned_to) && exception.assigned_to.present? %>
-                    <span class="rn-row-meta" title="Assigned to <%= exception.assigned_to %>">👤 <%= exception.assigned_to %></span>
-                  <% elsif exception.respond_to?(:comments_count) && exception.comments_count.to_i > 0 %>
-                    <span class="rn-row-meta"><%= exception.comments_count %> comments</span>
-                  <% end %>
-                </div>
               </td>
 
               <%# Time (relative) %>

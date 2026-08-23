@@ -20,28 +20,33 @@ module RailsNexus
 
     def run
       @record = RailsNexus::Backup.start!(
-        model_name: @config.name,
+        config_name: @config.name,
         triggered_by: "service"
       )
 
       begin
+        @stage = "preparing storage"
         FileUtils.mkdir_p(@config.storage_path_expanded)
 
         # Step 1: Dump database
+        @stage = "database dump"
         dump_path = dump_database
         raise "Database dump failed" unless dump_path
 
         # Step 2: Create archive if enabled (tar additional files/dirs)
+        @stage = "archive creation"
         if @config.archive_enabled? && @config.archive_paths_list.any?
           dump_path = create_archive(dump_path)
         end
 
         # Step 3: Split into chunks if enabled
+        @stage = "file splitting"
         if @config.split_chunks? && File.size(dump_path) > 50_000_000 # 50MB
           dump_path = split_file(dump_path)
         end
 
         # Step 4: Compress
+        @stage = "compression"
         if @config.compress? && !@config.split_chunks?
           dump_path = compress(dump_path)
         elsif @config.bzip2_compress? && !@config.split_chunks?
@@ -49,6 +54,7 @@ module RailsNexus
         end
 
         # Step 5: Encrypt
+        @stage = "encryption"
         if @config.encrypted?
           dump_path = encrypt_openssl(dump_path)
         elsif @config.gpg_enabled?
@@ -56,26 +62,32 @@ module RailsNexus
         end
 
         # Step 6: Sync to S3
+        @stage = "S3 sync"
         sync_s3(dump_path) if @config.s3_enabled?
 
         # Step 7: Sync to remote
-        rsync_result = sync_remote(dump_path) if @config.rsync_enabled?
+        @stage = "remote sync"
+        sync_remote(dump_path) if @config.rsync_enabled?
 
         # Step 8: Cleanup old backups
+        @stage = "retention cleanup"
         cleanup_old_backups
 
         # Step 9: Record success
+        @stage = "recording success"
         file_size = calculate_size(dump_path)
         @record.succeed!(file_path: dump_path, file_size: file_size)
 
         # Step 10: Notify
+        @stage = "success notification"
         notify_success
 
         { success: true, record: @record, file_path: dump_path }
       rescue StandardError => e
-        @record&.fail!(error_message: e.message)
-        notify_failure(e.message)
-        { success: false, error: e.message, record: @record }
+        full_error = failure_message(e)
+        @record&.fail!(error_message: full_error)
+        notify_failure(full_error)
+        { success: false, error: full_error, record: @record }
       ensure
         cleanup_temp_files
       end
@@ -101,10 +113,11 @@ module RailsNexus
     # ─── MySQL ─────────────────────────────────────────────────────
     def dump_mysql
       raw_path = @config.dump_filepath.gsub(/\.(gz|bz2|enc)$/, "")
+      password = resolve_password(@config.password)
       cmd = ["mysqldump"]
-      cmd << "--user=#{@config.username}"  if @config.username.present?
-      cmd << "--password=#{@config.password}" if @config.password.present?
-      cmd << "--host=#{@config.host}"      if @config.host.present?
+      cmd << "--user=#{resolve_env(@config.username)}" if @config.username.present?
+      cmd << "--password=#{password}" if password.present?
+      cmd << "--host=#{resolve_env(@config.host)}"      if @config.host.present?
       cmd << "--port=#{@config.port}"      if @config.port.present?
       cmd << "--result-file=#{raw_path}"
       cmd << "--single-transaction"
@@ -112,16 +125,22 @@ module RailsNexus
       cmd << "--routines"
       cmd << "--triggers"
       cmd << "--events"
+      # Additional MySQL options (e.g. --defaults-extra-file)
+      additional_options = if @config.respond_to?(:mysql_additional_options)
+        @config.mysql_additional_options
+      end
+      if additional_options.present?
+        additional_options.split(" ").each { |opt| cmd << opt }
+      end
 
       # Skip tables
       @config.skip_tables_list.each { |t| cmd << "--ignore-table=#{@config.database_name}.#{t}" }
 
       cmd << @config.database_name
 
-      stdout, stderr, status = Open3.capture3(cmd.join(" "))
+      stdout, stderr, status = capture_command(cmd.join(" "))
       unless status.success?
-        @errors << "mysqldump failed: #{stderr}"
-        return nil
+        raise "mysqldump failed (exit #{status.exitstatus}):\n#{stderr}\n#{stdout}"
       end
       register_temp_file(raw_path)
       raw_path
@@ -130,9 +149,10 @@ module RailsNexus
     # ─── PostgreSQL ────────────────────────────────────────────────
     def dump_postgresql
       raw_path = @config.dump_filepath.gsub(/\.(gz|bz2|enc)$/, "")
+      password = resolve_password(@config.password)
       cmd = ["pg_dump"]
-      cmd << "--username=#{@config.username}" if @config.username.present?
-      cmd << "--host=#{@config.host}"         if @config.host.present?
+      cmd << "--username=#{resolve_env(@config.username)}" if @config.username.present?
+      cmd << "--host=#{resolve_env(@config.host)}"         if @config.host.present?
       cmd << "--port=#{@config.port}"         if @config.port.present?
       cmd << "--file=#{raw_path}"
       cmd << "--format=plain"
@@ -145,15 +165,18 @@ module RailsNexus
       cmd << @config.database_name
 
       env = {}
-      env["PGPASSWORD"] = @config.password if @config.password.present?
+      env["PGPASSWORD"] = password if password.present?
 
       stdout, stderr, status = Open3.capture3(env, cmd.join(" "))
       unless status.success?
-        @errors << "pg_dump failed: #{stderr}"
-        return nil
+        raise "pg_dump failed (exit #{status.exitstatus}):\n#{stderr}\n#{stdout}"
       end
       register_temp_file(raw_path)
       raw_path
+    end
+
+    def capture_command(*command)
+      Open3.capture3(*command)
     end
 
     # ─── SQLite ────────────────────────────────────────────────────
@@ -162,14 +185,12 @@ module RailsNexus
       db_path = @config.database_name
 
       unless File.exist?(db_path)
-        @errors << "SQLite database not found: #{db_path}"
-        return nil
+        raise "SQLite database not found: #{db_path}"
       end
 
       stdout, stderr, status = Open3.capture3("sqlite3 \"#{db_path}\" .dump")
       unless status.success?
-        @errors << "sqlite3 dump failed: #{stderr}"
-        return nil
+        raise "sqlite3 dump failed (exit #{status.exitstatus}):\n#{stderr}\n#{stdout}"
       end
 
       File.write(raw_path, stdout)
@@ -183,13 +204,14 @@ module RailsNexus
       dir_path = raw_path.gsub(/\.sql$/, "")
       FileUtils.mkdir_p(dir_path)
 
+      password = resolve_password(@config.password)
       cmd = ["mongodump"]
-      cmd << "--host=#{@config.host || 'localhost'}"
+      cmd << "--host=#{resolve_env(@config.host) || 'localhost'}"
       cmd << "--port=#{@config.port || 27017}"
       cmd << "--db=#{@config.database_name}"
       cmd << "--out=#{dir_path}"
-      cmd << "--username=#{@config.username}" if @config.username.present?
-      cmd << "--password=#{@config.password}" if @config.password.present?
+      cmd << "--username=#{resolve_env(@config.username)}" if @config.username.present?
+      cmd << "--password=#{password}" if password.present?
       cmd << "--authenticationDatabase=admin" if @config.username.present?
 
       # Skip collections
@@ -197,17 +219,15 @@ module RailsNexus
 
       stdout, stderr, status = Open3.capture3(cmd.join(" "))
       unless status.success?
-        @errors << "mongodump failed: #{stderr}"
         FileUtils.rm_rf(dir_path) if Dir.exist?(dir_path)
-        return nil
+        raise "mongodump failed (exit #{status.exitstatus}):\n#{stderr}\n#{stdout}"
       end
 
       # Tar the dump directory
       tar_path = "#{dir_path}.tar"
       stdout, stderr, status = Open3.capture3("tar -cf \"#{tar_path}\" -C \"#{File.dirname(dir_path)}\" \"#{File.basename(dir_path)}\"")
       unless status.success?
-        @errors << "tar failed: #{stderr}"
-        return nil
+        raise "tar failed (exit #{status.exitstatus}):\n#{stderr}\n#{stdout}"
       end
 
       FileUtils.rm_rf(dir_path)
@@ -222,7 +242,7 @@ module RailsNexus
 
       host = @config.host || "localhost"
       port = @config.port || 6379
-      password = @config.password
+      password = resolve_password(@config.password)
 
       # Trigger BGSAVE first
       cmd = "redis-cli -h #{host} -p #{port}"
@@ -353,11 +373,16 @@ module RailsNexus
 
     def encrypt_openssl(file_path)
       enc_path = "#{file_path}.enc"
-      password = @config.encryption_password
+      password = resolve_secret(@config.encryption_password)
 
-      cmd = "openssl aes-256-cbc -salt -pbkdf2 -iter 100000 " \
-            "-in \"#{file_path}\" -out \"#{enc_path}\" " \
-            "-pass pass:#{password}"
+      # Best practice: AES-256-CBC + PBKDF2 + 600K iterations + random salt
+      # (AES-GCM not available in all OpenSSL builds)
+      cmd = "openssl enc -aes-256-cbc"
+      cmd += " -pbkdf2 -iter 600000"
+      cmd += " -salt"
+      cmd += " -in \"#{file_path}\""
+      cmd += " -out \"#{enc_path}\""
+      cmd += " -pass pass:#{password}"
 
       stdout, stderr, status = Open3.capture3(cmd)
       unless status.success?
@@ -371,10 +396,13 @@ module RailsNexus
 
     def encrypt_gpg(file_path)
       enc_path = "#{file_path}.gpg"
-      password = @config.gpg_password
+      password = resolve_secret(@config.gpg_password)
 
-      cmd = "echo #{password} | gpg --batch --yes --symmetric " \
+      # Best practice: AES256 with s2k-mode=iter for key derivation
+      cmd = "echo #{password.shellescape} | gpg --batch --yes --symmetric " \
             "--cipher-algo AES256 " \
+            "--s2k-mode 3 " \
+            "--s2k-count 65011712 " \
             "--passphrase-fd 0 " \
             "-o \"#{enc_path}\" \"#{file_path}\""
 
@@ -419,16 +447,37 @@ module RailsNexus
 
       remote = "#{@config.rsync_user}@#{@config.rsync_host}:#{@config.rsync_path}/"
 
-      cmd = [
-        "rsync",
-        "-avz",
-        "--progress",
-        "-e", "ssh -p #{@config.rsync_port}",
-        "\"#{file_path}\"",
-        remote
-      ].join(" ")
+      # Build rsync command
+      cmd = ["rsync"]
+      cmd << "-a"
+      cmd << "-z"  # compress
+      cmd << "--progress"
+      cmd << "--archive" if @config.respond_to?(:rsync_archive?) && @config.rsync_archive?
+      cmd << "--delete" if @config.respond_to?(:rsync_mirror?) && @config.rsync_mirror?
+      cmd << "-e"
+      cmd << "ssh -p #{@config.rsync_port.presence || 22}"
 
-      stdout, stderr, status = Open3.capture3(cmd)
+      # Add the dump file
+      cmd << file_path
+
+      # Add additional directories if configured
+      if @config.respond_to?(:rsync_directories) && @config.rsync_directories.present?
+        @config.rsync_directories.split(",").map(&:strip).reject(&:blank?).each do |dir|
+          expanded = dir.gsub("~", Dir.home)
+          cmd << expanded
+        end
+      end
+
+      # Add excludes
+      if @config.respond_to?(:rsync_excludes) && @config.rsync_excludes.present?
+        @config.rsync_excludes.split(",").map(&:strip).reject(&:blank?).each do |excl|
+          cmd << "--exclude=#{excl}"
+        end
+      end
+
+      cmd << remote
+
+      stdout, stderr, status = capture_command(*cmd)
       unless status.success?
         @errors << "RSync failed: #{stderr}"
       end
@@ -588,8 +637,46 @@ module RailsNexus
       @temp_files << path unless @temp_files.include?(path)
     end
 
+    # ─── Password Resolution ──────────────────────────────────────
+    # Supports:
+    #   "plain_text"              → used as-is
+    #   "ENV[MY_VAR]"             → resolved from ENV
+    #   "${MY_VAR}"               → resolved from ENV
+    #   "credentials[:key]"       → from Rails encrypted credentials
+    #   "credentials[:a][:b]"     → nested credentials key
+    def resolve_password(value)
+      return nil if value.blank?
+      resolve_secret(value)
+    end
+
+    def resolve_env(value)
+      resolve_secret(value)
+    end
+
+    def resolve_secret(value)
+      return nil if value.blank?
+      case value
+      when /^ENV\[(.+?)\]$/
+        ENV[$1]
+      when /^\$\{(.+?)\}$/
+        ENV[$1]
+      when /^credentials\[/
+        # credentials[:key] or credentials[:key][:subkey]
+        keys = value.scan(/\[:([^\]]+)\]/).flatten.map(&:to_sym)
+        Rails.application.credentials.dig(*keys)
+      else
+        value
+      end
+    end
+
     def command_exists?(cmd)
       system("which #{cmd} > /dev/null 2>&1")
+    end
+
+    def failure_message(exception)
+      heading = "#{@stage || 'backup'} failed: #{exception.class}: #{exception.message}"
+      trace = Array(exception.backtrace).first(5).join("\n")
+      [heading, trace.presence, @errors.join("\n").presence].compact.join("\n\n")
     end
   end
 end

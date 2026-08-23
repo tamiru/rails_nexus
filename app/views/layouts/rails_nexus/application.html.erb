@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
+  <meta name="turbo-prefetch" content="false">
   <title><%= content_for?(:title) ? yield(:title) : RailsNexus.configuration.application_name || "RailsNexus" %></title>
 
   <%= stylesheet_link_tag "rails_nexus/application", "data-turbo-track": "reload" %>
@@ -16,12 +17,24 @@
   <%= csrf_meta_tags %>
   <%= csp_meta_tag %>
 </head>
-<% exception_count = RailsNexus::LoggedException.count %>
+<%
+  exception_count = RailsNexus::LoggedException.count
+  monitor_menu_active = %w[
+    rails_nexus/logged_exceptions rails_nexus/database_health rails_nexus/n1_patterns
+    rails_nexus/analytics rails_nexus/stats
+  ].include?(controller_path)
+  operations_menu_active = %w[
+    rails_nexus/cron_jobs rails_nexus/backup rails_nexus/settings
+  ].include?(controller_path)
+  resources_menu_active = RailsNexus.configuration.sidebar_links.any? do |link|
+    link[:url].to_s == request.path
+  end
+%>
 <body class="h-full <%= RailsNexus.configuration.body_class %>" data-controller="rails_nexus-sidebar">
   <div class="min-h-full flex">
 
     <%# Sidebar %>
-    <aside class="rn-sidebar">
+    <aside id="rn-desktop-sidebar" class="rn-sidebar" data-rails_nexus-sidebar-target="sidebar">
       <%# Logo %>
       <div class="rn-sidebar-logo">
         <%= link_to root_path, class: "flex items-center gap-2.5" do %>
@@ -34,8 +47,16 @@
       </div>
 
       <%# Navigation %>
-      <nav class="rn-sidebar-nav">
-        <span class="rn-nav-section-label">Monitor</span>
+      <nav class="rn-sidebar-nav" aria-label="RailsNexus navigation">
+        <details class="rn-nav-section" data-action="toggle->rails_nexus-sidebar#closeOtherMenus" <%= "open" if monitor_menu_active %>>
+          <summary class="rn-nav-section-toggle">
+            <span class="rn-nav-section-title">
+              <span class="rn-nav-section-icon"><svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h3l2.25-6 4.5 12 2.25-6H21" /></svg></span>
+              <span>Monitor</span>
+            </span>
+            <svg class="rn-nav-section-chevron" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+          </summary>
+          <div class="rn-nav-section-items">
         <%= link_to root_path,
           class: "rn-nav-item #{request.path == rails_nexus.root_path ? 'active' : ''}" do %>
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
@@ -69,7 +90,18 @@
           Statistics
         <% end %>
 
-        <span class="rn-nav-section-label">Operations</span>
+          </div>
+        </details>
+
+        <details class="rn-nav-section" data-action="toggle->rails_nexus-sidebar#closeOtherMenus" <%= "open" if operations_menu_active %>>
+          <summary class="rn-nav-section-toggle">
+            <span class="rn-nav-section-title">
+              <span class="rn-nav-section-icon"><svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15M7.5 12h9m-6 5.25h3" /></svg></span>
+              <span>Operations</span>
+            </span>
+            <svg class="rn-nav-section-chevron" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+          </summary>
+          <div class="rn-nav-section-items">
 
         <%= link_to cron_jobs_path,
           class: "rn-nav-item #{request.path.start_with?(rails_nexus.cron_jobs_path) ? 'active' : ''}" do %>
@@ -78,9 +110,15 @@
         <% end %>
 
         <%= link_to backup_path,
-          class: "rn-nav-item #{request.path.start_with?(rails_nexus.backup_path) ? 'active' : ''}" do %>
+          class: "rn-nav-item #{controller_path == 'rails_nexus/backup' && !%w[all_history history].include?(action_name) ? 'active' : ''}" do %>
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
           Backups
+        <% end %>
+
+        <%= link_to backup_history_path,
+          class: "rn-nav-item #{controller_path == 'rails_nexus/backup' && %w[all_history history].include?(action_name) ? 'active' : ''}" do %>
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          Backup History
         <% end %>
 
         <%= link_to settings_path,
@@ -89,7 +127,18 @@
           Settings
         <% end %>
 
-        <span class="rn-nav-section-label">Resources</span>
+          </div>
+        </details>
+
+        <details class="rn-nav-section" data-action="toggle->rails_nexus-sidebar#closeOtherMenus" <%= "open" if resources_menu_active %>>
+          <summary class="rn-nav-section-toggle">
+            <span class="rn-nav-section-title">
+              <span class="rn-nav-section-icon"><svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6H6.75A3.75 3.75 0 003 9.75v7.5A3.75 3.75 0 006.75 21h7.5A3.75 3.75 0 0018 17.25V13.5m-6-1.5L21 3m0 0h-5.25M21 3v5.25" /></svg></span>
+              <span>Resources</span>
+            </span>
+            <svg class="rn-nav-section-chevron" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+          </summary>
+          <div class="rn-nav-section-items">
 
         <% if main_app.respond_to?(:root_path) %>
           <%= link_to main_app.root_path,
@@ -113,6 +162,8 @@
             <%= link[:label] %>
           <% end %>
         <% end %>
+          </div>
+        </details>
       </nav>
 
       <%# Footer %>
@@ -128,10 +179,13 @@
       <header class="rn-topbar">
         <div class="rn-topbar-title">
           <button type="button"
-            class="rn-icon-btn rn-mobile-menu-button"
+            class="rn-icon-btn rn-sidebar-toggle"
             data-action="click->rails_nexus-sidebar#toggle"
-            title="Open navigation"
-            aria-label="Open navigation">
+            data-rails_nexus-sidebar-target="toggleButton"
+            title="Toggle navigation"
+            aria-label="Hide navigation"
+            aria-controls="rn-desktop-sidebar rn-mobile-sidebar"
+            aria-expanded="true">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
           </button>
           <div>
@@ -193,7 +247,7 @@
       <% end %>
 
       <%# Main Content %>
-      <main class="rn-main flex-1 overflow-y-auto p-4 sm:p-6">
+      <main class="rn-main flex-1 p-4 sm:p-6">
         <%= yield %>
       </main>
 
@@ -216,7 +270,7 @@
   <div class="rn-overlay" data-rails_nexus-sidebar-target="overlay" data-action="click->rails_nexus-sidebar#close"></div>
 
   <%# Mobile sidebar drawer %>
-  <div class="rn-mobile-sidebar" data-rails_nexus-sidebar-target="drawer">
+  <div id="rn-mobile-sidebar" class="rn-mobile-sidebar" data-rails_nexus-sidebar-target="drawer">
     <div class="rn-sidebar-logo">
       <%= link_to root_path, class: "flex items-center gap-2.5" do %>
         <div class="rn-logo-icon">⚡</div>
@@ -229,7 +283,11 @@
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
     </div>
-    <%= render "layouts/rails_nexus/sidebar_navigation", exception_count: exception_count %>
+    <%= render "layouts/rails_nexus/sidebar_navigation",
+      exception_count: exception_count,
+      monitor_menu_active: monitor_menu_active,
+      operations_menu_active: operations_menu_active,
+      resources_menu_active: resources_menu_active %>
     <div class="rn-sidebar-footer">
       <span class="rn-sidebar-status"><span class="rn-status-dot"></span>Operational</span>
       <span>v<%= RailsNexus::VERSION %></span>

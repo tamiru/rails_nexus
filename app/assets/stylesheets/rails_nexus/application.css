@@ -33,6 +33,7 @@ table { border-collapse: collapse; width: 100%; }
 /* ─── Tailwind-like Utility Classes ─────────────────────────── */
 
 /* Display */
+[hidden] { display: none !important; }
 .hidden { display: none !important; }
 .block { display: block; }
 .inline-block { display: inline-block; }
@@ -1026,6 +1027,7 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
 /* ─── Sidebar ───────────────────────────────────────────────── */
 .rn-sidebar {
   width: 16rem;
+  overflow: hidden;
   background: var(--rn-surface);
   color: var(--rn-text-secondary);
   display: flex;
@@ -1036,6 +1038,13 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
   top: 0;
   height: 100vh;
   z-index: 30;
+  transition: width 200ms ease, opacity 150ms ease, border-color 150ms ease;
+}
+.rn-sidebar.is-hidden {
+  width: 0;
+  border-right-color: transparent;
+  opacity: 0;
+  pointer-events: none;
 }
 @media (max-width: 1023px) { .rn-sidebar { display: none; } }
 
@@ -1084,41 +1093,104 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
 
 .rn-sidebar-nav {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.75rem 0.625rem;
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.375rem;
   overflow-y: auto;
 }
 .rn-nav-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-.rn-nav-section + .rn-nav-section { margin-top: 0.75rem; }
-.rn-nav-section-label {
   display: block;
-  margin: 0.625rem 0.75rem 0.25rem;
-  color: var(--rn-text-muted);
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  line-height: 1;
-  text-transform: uppercase;
+  border: 1px solid transparent;
+  border-radius: 0.625rem;
+  transition: background var(--rn-transition), border-color var(--rn-transition);
 }
-.rn-sidebar-nav > .rn-nav-section-label:not(:first-child) { margin-top: 1rem; }
-
-.rn-nav-item {
-  position: relative;
+.rn-nav-section[open] {
+  border-color: var(--rn-border-light);
+  background: color-mix(in srgb, var(--rn-bg-secondary) 55%, transparent);
+}
+.rn-nav-section-toggle {
+  min-height: 2.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5625rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--rn-text-secondary);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  list-style: none;
+  transition: color var(--rn-transition), background var(--rn-transition);
+  user-select: none;
+}
+.rn-nav-section-toggle::-webkit-details-marker { display: none; }
+.rn-nav-section-toggle:hover,
+.rn-nav-section-toggle:focus-visible {
+  background: var(--rn-surface-hover);
+  color: var(--rn-text);
+  outline: none;
+}
+.rn-nav-section-toggle:focus-visible { box-shadow: inset 0 0 0 2px var(--rn-primary-ring); }
+.rn-nav-section-title {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  padding: 0.5rem 0.75rem;
+}
+.rn-nav-section-icon {
+  width: 1.625rem;
+  height: 1.625rem;
+  border: 1px solid var(--rn-border);
   border-radius: 0.5rem;
-  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--rn-surface);
+  color: var(--rn-text-muted);
+  box-shadow: var(--rn-shadow-sm);
+  transition: color var(--rn-transition), border-color var(--rn-transition), background var(--rn-transition);
+}
+.rn-nav-section-chevron {
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0.125rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  color: var(--rn-text-muted);
+  transition: transform var(--rn-transition);
+}
+.rn-nav-section[open] > .rn-nav-section-toggle { color: var(--rn-text); }
+.rn-nav-section[open] > .rn-nav-section-toggle .rn-nav-section-icon {
+  border-color: color-mix(in srgb, var(--rn-primary) 25%, var(--rn-border));
+  background: var(--rn-primary-light);
+  color: var(--rn-primary);
+  box-shadow: none;
+}
+.rn-nav-section[open] > .rn-nav-section-toggle .rn-nav-section-chevron { transform: rotate(90deg); }
+.rn-nav-section-items {
+  margin: 0.125rem 0.5rem 0.5rem 1.3125rem;
+  padding-left: 0.6875rem;
+  border-left: 1px solid var(--rn-border);
+  display: grid;
+  gap: 0.125rem;
+}
+
+.rn-nav-item {
+  position: relative;
+  min-height: 2.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5625rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.4375rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--rn-text-secondary);
-  transition: all var(--rn-transition);
+  transition: color var(--rn-transition), background var(--rn-transition);
   text-decoration: none;
 }
 .rn-nav-item:hover {
@@ -1132,8 +1204,8 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
 }
 .rn-nav-item.active::before {
   position: absolute;
-  top: 0.625rem;
-  bottom: 0.625rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
   left: -0.75rem;
   width: 2px;
   border-radius: 999px;
@@ -1142,7 +1214,6 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
 }
 .rn-nav-item svg { flex-shrink: 0; }
 .rn-nav-item--muted {
-  font-size: 0.8125rem;
   opacity: 0.8;
 }
 .rn-nav-item--muted:hover {
@@ -1157,6 +1228,10 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
   background: var(--rn-bg-secondary);
   color: var(--rn-text-secondary);
   line-height: 1.25;
+}
+.rn-nav-item.active .rn-nav-badge {
+  background: color-mix(in srgb, var(--rn-primary) 12%, var(--rn-surface));
+  color: var(--rn-primary);
 }
 .rn-sidebar-section-divider {
   height: 1px;
@@ -1251,13 +1326,11 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
   font-size: 0.6875rem;
   line-height: 1.1;
 }
-.rn-mobile-menu-button { display: none; }
-@media (max-width: 1023px) {
-  .rn-mobile-menu-button { display: inline-flex; }
-}
+.rn-sidebar-toggle { display: inline-flex; }
 
 /* ─── Shell Footer ─────────────────────────────────────────── */
 .rn-footer {
+  position: static;
   min-height: 3.25rem;
   padding: 0.75rem 1.5rem;
   border-top: 1px solid var(--rn-border-light);
@@ -1713,6 +1786,39 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
   white-space: nowrap;
 }
 
+.rn-exceptions-panel { overflow: hidden; }
+.rn-exceptions-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.rn-exceptions-results { min-width: 0; }
+.rn-filter-disclosure { overflow: hidden; }
+.rn-filter-summary {
+  padding: 0.75rem 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--rn-text-muted);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.rn-filter-summary::-webkit-details-marker { display: none; }
+.rn-filter-summary:hover { background: var(--rn-surface-hover); }
+.rn-filter-count {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--rn-primary-light);
+  color: var(--rn-primary);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+.rn-filter-chevron { flex-shrink: 0; transition: transform var(--rn-transition); }
+.rn-filter-disclosure[open] .rn-filter-chevron { transform: rotate(180deg); }
+.rn-filter-disclosure[open] .rn-filter-summary { border-bottom: 1px solid var(--rn-border-light); }
 .rn-exceptions-toolbar {
   min-height: 3.25rem;
   padding: 0.625rem 1rem;
@@ -1727,21 +1833,26 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
   align-items: center;
   gap: 0.75rem;
 }
+.rn-exceptions-toolbar-actions { margin-left: auto; }
 .rn-exceptions-table {
   table-layout: fixed;
-  min-width: 64rem;
+  width: 100%;
+  min-width: 0;
 }
 .rn-exceptions-table th,
 .rn-exceptions-table td { padding-right: 0.75rem; padding-left: 0.75rem; }
-.rn-exceptions-table .rn-col-severity { width: 1.5rem; padding-right: 0; }
-.rn-exceptions-table .rn-col-exception { width: 10.5rem; }
-.rn-exceptions-table .rn-col-platform { width: 5.5rem; }
-.rn-exceptions-table .rn-col-source { width: 10rem; }
+.rn-exceptions-table .rn-col-exception { width: 11rem; }
+.rn-exceptions-table .rn-col-source { width: 9rem; }
 .rn-exceptions-table .rn-col-message { width: auto; }
-.rn-exceptions-table .rn-col-count { width: 4.5rem; text-align: center; }
-.rn-exceptions-table .rn-col-workflow { width: 10.5rem; }
-.rn-exceptions-table .rn-col-time { width: 6.5rem; }
-.rn-exceptions-table .rn-col-actions { width: 4.5rem; }
+.rn-exceptions-table .rn-col-count { width: 4rem; text-align: center; }
+.rn-exceptions-table .rn-col-time { width: 6rem; }
+.rn-exceptions-table .rn-col-actions { width: 4rem; }
+.rn-exceptions-table .rn-exception-cell {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
 .rn-exceptions-table .rn-exception-name {
   display: block;
   overflow: hidden;
@@ -1842,6 +1953,9 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
 }
 
 @media (max-width: 1100px) {
+  .rn-exceptions-main { width: 100%; }
+  .rn-exceptions-toolbar { flex-wrap: wrap; }
+  .rn-exceptions-toolbar-actions { flex-wrap: wrap; }
   .rn-exceptions-table { display: block; min-width: 0; }
   .rn-exceptions-table thead { display: none; }
   .rn-exceptions-table tbody {
@@ -1855,13 +1969,11 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
     border-left: 3px solid transparent;
     border-radius: 0.625rem;
     display: grid;
-    grid-template-columns: 0.5rem minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "severity exception exception actions"
-      "severity message message message"
-      "severity source source source"
-      "severity platform count time"
-      "severity workflow workflow workflow";
+      "exception exception actions"
+      "message message message"
+      "source count time";
     column-gap: 0.75rem;
     row-gap: 0.5rem;
     background: var(--rn-surface);
@@ -1879,13 +1991,10 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
     border: 0;
     min-width: 0;
   }
-  .rn-exceptions-table .rn-col-severity { grid-area: severity; }
   .rn-exceptions-table .rn-col-exception { grid-area: exception; }
-  .rn-exceptions-table .rn-col-platform { grid-area: platform; }
   .rn-exceptions-table .rn-col-source { grid-area: source; }
   .rn-exceptions-table .rn-col-message { grid-area: message; }
   .rn-exceptions-table .rn-col-count { grid-area: count; text-align: left; }
-  .rn-exceptions-table .rn-col-workflow { grid-area: workflow; }
   .rn-exceptions-table .rn-col-time { grid-area: time; text-align: right; }
   .rn-exceptions-table .rn-col-actions { grid-area: actions; }
   .rn-exceptions-table .rn-exception-name { font-size: 0.875rem; }
@@ -1897,25 +2006,21 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
     font-size: 0.6875rem;
   }
   .rn-exceptions-table .rn-row-actions { opacity: 1; }
-  .rn-exceptions-table .rn-severity-dot { height: 100%; min-height: 1.5rem; margin-top: 0; }
-  .rn-exceptions-table .rn-workflow-state { align-items: center; }
 }
 
 @media (max-width: 639px) {
   .rn-exceptions-toolbar { align-items: flex-start; flex-direction: column; }
   .rn-exceptions-toolbar-summary { width: 100%; justify-content: space-between; }
-  .rn-exceptions-toolbar-actions { width: 100%; justify-content: flex-end; }
-  .rn-exceptions-toolbar-actions > span { display: none; }
+  .rn-exceptions-toolbar-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
+  .rn-shortcuts-hint { display: none; }
   .rn-exceptions-table tbody { padding: 0.5rem; }
   .rn-exceptions-table tbody tr {
-    grid-template-columns: 0.5rem minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "severity exception actions"
-      "severity message message"
-      "severity source source"
-      "severity workflow workflow"
-      "severity platform count"
-      "severity time time";
+      "exception actions actions"
+      "message message message"
+      "source source source"
+      "count time time";
   }
   .rn-exceptions-table .rn-col-time { text-align: left; }
 }
@@ -2222,9 +2327,14 @@ code, pre { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", mon
 .rn-font-semibold { font-weight: 600; }
 
 /* ─── Layout (override host app resets) ─────────────────── */
-html { height: 100%; }
-body { height: 100vh; overflow: hidden; margin: 0; }
-body > div.min-h-full { height: 100vh; min-height: 100vh; }
+html { min-height: 100%; }
+body { min-height: 100%; height: auto; overflow: visible; margin: 0; }
+body > div.min-h-full { min-height: 100vh; height: auto; }
 body > div.min-h-full > .rn-sidebar { height: 100vh; min-height: 100vh; }
-body > div.min-h-full > div:last-child { display: flex; flex-direction: column; overflow: hidden; }
-body > div.min-h-full > div:last-child > main { flex: 1; overflow-y: auto; }
+body > div.min-h-full > div:last-child {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }

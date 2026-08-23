@@ -254,9 +254,9 @@ namespace :rails_nexus do
     results = RailsNexus::BackupRunner.run_all
     results.each do |r|
       if r[:success]
-        puts "✓ #{r[:record].model_name} completed"
+        puts "✓ #{r[:record].config_name} completed"
       else
-        puts "✗ #{r[:record]&.model_name || '?'} failed: #{r[:error]}"
+        puts "✗ #{r[:record]&.config_name || '?'} failed: #{r[:error]}"
       end
     end
   end
@@ -269,9 +269,9 @@ namespace :rails_nexus do
     else
       results.each do |r|
         if r[:success]
-          puts "✓ #{r[:record].model_name} completed"
+          puts "✓ #{r[:record].config_name} completed"
         else
-          puts "✗ #{r[:record]&.model_name || '?'} failed: #{r[:error]}"
+          puts "✗ #{r[:record]&.config_name || '?'} failed: #{r[:error]}"
         end
       end
     end

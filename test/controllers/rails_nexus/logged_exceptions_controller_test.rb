@@ -37,6 +37,7 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
     assert_select "span", text: "RuntimeError"
     assert_select "table.rn-exceptions-table td.rn-col-message .rn-msg[title='Test error message']"
     assert_select "th.sortable a", minimum: 5
+    assert_select "th.rn-col-platform, th.rn-col-workflow", count: 0
     assert_select "select[name='q[priority_eq]']", count: 1
   end
 
@@ -44,11 +45,26 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
     get "/rails_nexus/logged_exceptions"
 
     assert_select "body[data-controller~='rails_nexus-sidebar']"
-    assert_select "button[data-action='click->rails_nexus-sidebar#toggle'][aria-label='Open navigation']"
+    assert_select "meta[name='turbo-prefetch'][content='false']"
+    assert_select "aside#rn-desktop-sidebar[data-rails_nexus-sidebar-target='sidebar']"
+    assert_select "button[data-action='click->rails_nexus-sidebar#toggle'][data-rails_nexus-sidebar-target='toggleButton'][aria-controls~='rn-desktop-sidebar'][aria-controls~='rn-mobile-sidebar']"
+    assert_select "#rn-mobile-sidebar[data-rails_nexus-sidebar-target='drawer']"
     assert_select "button#rn-shortcuts-button[data-action='click->rails_nexus-sidebar#toggleShortcuts'][aria-haspopup='dialog']"
     assert_select ".rn-shortcuts-overlay[role='dialog'][aria-labelledby='rn-shortcuts-title']"
-    assert_select ".rn-sidebar .rn-nav-section-label", text: "Monitor"
+    assert_select "section.rn-card.rn-exceptions-panel", count: 1
+    assert_select ".rn-exceptions-panel > .rn-exceptions-main table.rn-exceptions-table"
+    assert_select ".rn-exceptions-panel > .rn-exceptions-main > details.rn-filter-disclosure[open]", count: 1
+    assert_select ".rn-exceptions-panel #exceptions-content.rn-exceptions-results", count: 1
+    assert_select ".rn-table-overview", count: 0
+    assert_select ".rn-exceptions-rail", count: 0
+    assert_select "#activity[hidden]", count: 1
+    assert_select ".rn-sidebar details.rn-nav-section", count: 3
+    assert_select ".rn-sidebar details.rn-nav-section[open] > summary.rn-nav-section-toggle", text: /Monitor/, count: 1
+    assert_select ".rn-sidebar summary[data-action]", count: 0
+    assert_select ".rn-sidebar details[data-action='toggle->rails_nexus-sidebar#closeOtherMenus']", count: 3
     assert_select ".rn-mobile-sidebar nav[aria-label='RailsNexus navigation']"
+    assert_select ".rn-mobile-sidebar details.rn-nav-section", count: 3
+    assert_select "main.rn-main.overflow-y-auto", count: 0
     assert_select ".rn-footer a[href='https://github.com/tamiru']", text: "Tamiru Hailu"
     assert_select ".rn-footer a[href='https://github.com/tamiru/rails_nexus']", text: /GitHub/
   end
@@ -108,7 +124,8 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
 
     assert_response :success
     assert_select "select[name='q[priority_eq]']", count: 0
-    assert_select "th.rn-col-workflow", text: "Workflow"
+    assert_select "th.rn-col-source", text: "Source"
+    assert_select "th.rn-col-workflow", count: 0
   ensure
     singleton&.define_method(:ransackable_attributes, original) if original
   end

@@ -43,16 +43,89 @@
   // ═══════════════════════════════════════════════════════════════
 
   class RailsNexusSidebarController {
-    static get targets() { return ["drawer", "overlay"] }
+    static get targets() { return ["drawer", "overlay", "sidebar", "toggleButton"] }
+
+    connect() {
+      this.handleResize = this.syncButtonState.bind(this)
+      window.addEventListener("resize", this.handleResize)
+
+      if (this.desktop() && this.sidebarHidden() && this.hasSidebarTarget) {
+        this.sidebarTarget.classList.add("is-hidden")
+      }
+
+      this.syncButtonState()
+    }
+
+    disconnect() {
+      window.removeEventListener("resize", this.handleResize)
+    }
 
     toggle() {
-      if (this.hasDrawerTarget) this.drawerTarget.classList.toggle("open")
-      if (this.hasOverlayTarget) this.overlayTarget.classList.toggle("open")
+      if (this.desktop()) {
+        if (this.hasSidebarTarget) {
+          var hidden = this.sidebarTarget.classList.toggle("is-hidden")
+          this.storeSidebarState(hidden)
+        }
+      } else if (this.hasDrawerTarget) {
+        var opening = !this.drawerTarget.classList.contains("open")
+        this.drawerTarget.classList.toggle("open", opening)
+        if (this.hasOverlayTarget) this.overlayTarget.classList.toggle("open", opening)
+      }
+
+      this.syncButtonState()
     }
 
     close() {
       if (this.hasDrawerTarget) this.drawerTarget.classList.remove("open")
       if (this.hasOverlayTarget) this.overlayTarget.classList.remove("open")
+      this.syncButtonState()
+    }
+
+    desktop() {
+      return window.matchMedia("(min-width: 1024px)").matches
+    }
+
+    sidebarHidden() {
+      try {
+        return localStorage.getItem("rails_nexus-sidebar-hidden") === "true"
+      } catch (_error) {
+        return false
+      }
+    }
+
+    storeSidebarState(hidden) {
+      try {
+        localStorage.setItem("rails_nexus-sidebar-hidden", hidden.toString())
+      } catch (_error) {
+        // The toggle still works when storage is unavailable.
+      }
+    }
+
+    syncButtonState() {
+      if (!this.hasToggleButtonTarget) return
+
+      var expanded
+      if (this.desktop()) {
+        expanded = this.hasSidebarTarget && !this.sidebarTarget.classList.contains("is-hidden")
+      } else {
+        expanded = this.hasDrawerTarget && this.drawerTarget.classList.contains("open")
+      }
+
+      this.toggleButtonTarget.setAttribute("aria-expanded", expanded.toString())
+      this.toggleButtonTarget.setAttribute("aria-label", expanded ? "Hide navigation" : "Show navigation")
+      this.toggleButtonTarget.title = expanded ? "Hide navigation" : "Show navigation"
+    }
+
+    closeOtherMenus(event) {
+      var currentMenu = event.currentTarget
+      if (!currentMenu.open) return
+
+      var navigation = currentMenu.closest(".rn-sidebar-nav")
+      if (!navigation) return
+
+      navigation.querySelectorAll("details.rn-nav-section[open]").forEach(function(menu) {
+        if (menu !== currentMenu) menu.open = false
+      })
     }
 
     toggleShortcuts(event) {
@@ -393,11 +466,15 @@
     // ─── Loading State ────────────────────────────────────────
 
     showActivity() {
-      if (this.hasActivityTarget) this.activityTarget.classList.remove("hidden")
+      if (!this.hasActivityTarget) return
+      this.activityTarget.hidden = false
+      this.activityTarget.classList.remove("hidden")
     }
 
     hideActivity() {
-      if (this.hasActivityTarget) this.activityTarget.classList.add("hidden")
+      if (!this.hasActivityTarget) return
+      this.activityTarget.hidden = true
+      this.activityTarget.classList.add("hidden")
     }
   }
 

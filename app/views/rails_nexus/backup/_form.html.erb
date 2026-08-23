@@ -70,6 +70,7 @@
       <div class="rn-filter-group">
         <label>Password</label>
         <%= f.password_field :password, class: "rn-input", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" %>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">ENV[VAR], ${VAR}, credentials[:key], or plain text</p>
       </div>
       <div class="rn-filter-group md:col-span-3">
         <label>Skip Tables (comma-separated)</label>
@@ -147,6 +148,7 @@
       <div class="rn-filter-group" id="encrypt-password-group" style="<%= 'display:none' unless @config.encrypted? %>">
         <label>Encryption Password</label>
         <%= f.password_field :encryption_password, class: "rn-input", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" %>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">ENV[VAR], ${VAR}, credentials[:key], or plain text</p>
       </div>
       <div class="rn-filter-group">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -157,6 +159,7 @@
       <div class="rn-filter-group" id="gpg-password-group" style="<%= 'display:none' unless @config.gpg_enabled? %>">
         <label>GPG Password</label>
         <%= f.password_field :gpg_password, class: "rn-input", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" %>
+        <p class="text-xs mt-1" style="color: var(--rn-text-muted)">ENV[VAR], ${VAR}, credentials[:key], or plain text</p>
       </div>
       <div class="rn-filter-group">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">

@@ -13,6 +13,7 @@ module RailsNexus
     attribute :enabled,            :boolean, default: true
     attribute :compress,           :boolean, default: true
     attribute :encrypted,          :boolean, default: false
+    attribute :encrypt_base64,     :boolean, default: false
     attribute :rsync_enabled,      :boolean, default: false
     attribute :rsync_mirror,       :boolean, default: false
     attribute :notify_on_success,  :boolean, default: true
@@ -113,11 +114,15 @@ module RailsNexus
 
     # ─── Stats ─────────────────────────────────────────────────────
     def recent_backups(limit: 10)
-      RailsNexus::Backup.where(model_name: name).order(started_at: :desc).limit(limit)
+      RailsNexus::Backup.where(config_name: name).order(started_at: :desc).limit(limit)
+    end
+
+    def last_failure
+      RailsNexus::Backup.where(config_name: name, status: "failed").order(started_at: :desc).first
     end
 
     def stats
-      backups = RailsNexus::Backup.where(model_name: name)
+      backups = RailsNexus::Backup.where(config_name: name)
       recent = backups.where("started_at >= ?", 7.days.ago)
       {
         total: backups.count,

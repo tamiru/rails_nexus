@@ -373,10 +373,14 @@ export default class extends Controller {
   // ─── Loading State ────────────────────────────────────────
 
   showActivity() {
-    this.activityTarget?.classList.remove("hidden")
+    if (!this.hasActivityTarget) return
+    this.activityTarget.hidden = false
+    this.activityTarget.classList.remove("hidden")
   }
 
   hideActivity() {
-    this.activityTarget?.classList.add("hidden")
+    if (!this.hasActivityTarget) return
+    this.activityTarget.hidden = true
+    this.activityTarget.classList.add("hidden")
   }
 }
