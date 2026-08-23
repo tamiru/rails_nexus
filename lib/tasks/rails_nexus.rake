@@ -227,4 +227,13 @@ namespace :rails_nexus do
     count = RailsNexus::WebhookDelivery.where("created_at < ?", days.days.ago).delete_all
     puts "✓ Deleted #{count} webhook delivery records older than #{days} days"
   end
+
+  desc "Scan backup filesystem and record new files in the database"
+  task backup_scan: :environment do
+    service = RailsNexus::BackupService.new
+    created = service.scan_and_record!
+    puts "✓ Scanned backup filesystem — #{created} new records created"
+    total = RailsNexus::Backup.count
+    puts "  Total backup records: #{total}"
+  end
 end

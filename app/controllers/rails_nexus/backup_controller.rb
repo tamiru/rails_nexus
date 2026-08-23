@@ -12,6 +12,14 @@ module RailsNexus
       @summary = @backup_service.summary
       @models = @backup_service.models
       @schedule = @backup_service.cron_schedule
+      @records = @backup_service.backup_records
+    end
+
+    # POST /rails_nexus/backup/scan
+    def scan
+      @backup_service = BackupService.new
+      created = @backup_service.scan_and_record!
+      redirect_to backup_path, notice: "Scanned filesystem — #{created} new backup records created."
     end
 
     # GET /rails_nexus/backup/files
