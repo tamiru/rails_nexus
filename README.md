@@ -447,16 +447,13 @@ GitHub Actions runs the test matrix, database compatibility checks, asset builds
 and security checks on pushes and pull requests. Releases are published to
 RubyGems when a version tag is pushed.
 
-Before the first release, configure a RubyGems [Trusted Publisher](https://guides.rubygems.org/trusted-publishing/)
-for:
-
-- Owner: `tamiru`
-- Repository: `rails_nexus`
-- Workflow: `release.yml`
-- GitHub environment: `release`
+Before the first release, create a scoped RubyGems API key that can push only
+the `rails_nexus` gem. Add it to the GitHub repository (or its `release`
+environment) as an Actions secret named `RUBYGEMS_API_KEY`. Never commit the
+key to the repository.
 
 Create the `release` environment in GitHub and add required reviewers if you
-want a manual approval before publishing. No RubyGems API key is needed.
+want a manual approval before publishing.
 
 To release a version, update `lib/rails_nexus/version.rb` and `CHANGELOG.md`,
 merge the changes to `main`, then push a matching tag:
