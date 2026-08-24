@@ -92,10 +92,12 @@ module RailsNexus
 
     initializer "rails_nexus.after_create" do
       ActiveSupport.on_load(:active_record) do
-        RailsNexus::LoggedException.after_create do |exception|
-          RailsNexus::Notifications.notify(exception)
-        rescue StandardError => e
-          Rails.logger.error("[RailsNexus] Notification error: #{e.message}")
+        if defined?(RailsNexus::LoggedException)
+          RailsNexus::LoggedException.after_create do |exception|
+            RailsNexus::Notifications.notify(exception)
+          rescue StandardError => e
+            Rails.logger.error("[RailsNexus] Notification error: #{e.message}")
+          end
         end
       end
     end
