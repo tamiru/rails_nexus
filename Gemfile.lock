@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     rails_nexus (2.1.4)
-      pagy (~> 6.5)
+      pagy (>= 6.5, < 44.0)
       rails (~> 8.0, >= 8.0.0)
       ransack (~> 4.0)
       stimulus-rails (~> 1.3)
@@ -133,7 +133,10 @@ GEM
     nio4r (2.7.5)
     nokogiri (1.19.4-x86_64-linux-gnu)
       racc (~> 1.4)
-    pagy (6.5.0)
+    pagy (43.4.4)
+      json
+      uri
+      yaml
     pp (0.6.4)
       prettyprint
     prettyprint (0.2.0)
@@ -220,13 +223,14 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
+    yaml (0.4.0)
     zeitwerk (2.8.3)
 
 PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
-  pagy (~> 6.5)
+  pagy (~> 43.4)
   puma
   rack (>= 3.2)
   rails_nexus!
