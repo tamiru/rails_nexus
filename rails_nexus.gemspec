@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.email       = ["tamiruhailu@gmail.com"]
   spec.homepage    = "https://github.com/tamiru/rails_nexus"
   spec.summary     = "The extensible control plane for Rails applications"
-  spec.description = "RailsNexus is an extensible operations and administration console for Rails applications. It provides error monitoring, backup management, cron job tracking, server statistics, database health, real-time analytics, workflow management, source code viewing, N+1 query detection, and storm protection. Built with Hotwire, Stimulus, and Tailwind-compatible CSS."
+  spec.description = "RailsNexus is an extensible operations and administration console for Rails applications. It provides error monitoring, cron job tracking, server statistics, database health, real-time analytics, workflow management, source code viewing, N+1 query detection, and storm protection. Built with Hotwire, Stimulus, and Tailwind-compatible CSS."
   spec.metadata["rubygems_mfa_required"] = "true"
   spec.license     = "MIT"
 
@@ -32,6 +32,4 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "ransack", "~> 4.0"
 
-  # Note: Backup management requires 'backup' (~> 4.4) and 'whenever' (~> 1.1)
-  # gems to be added to your host application's Gemfile.
 end

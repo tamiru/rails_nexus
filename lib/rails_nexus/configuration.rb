@@ -183,15 +183,6 @@ module RailsNexus
 
     # Source Code Viewing
     attr_accessor :source_code_viewing
-
-    # Backup Management
-    attr_accessor :backup_enabled
-    attr_accessor :backup_config_path
-    attr_accessor :backup_models_path
-    attr_accessor :backup_dump_path
-    attr_accessor :backup_notify_command
-    attr_accessor :backup_alert_threshold_hours
-
     # ─── Database ───────────────────────────────────────────────
     # Use a separate database for RailsNexus tables.
     # Options:
@@ -282,15 +273,6 @@ module RailsNexus
 
       # Source Code Viewing
       @source_code_viewing = true
-
-      # Backup Management
-      @backup_enabled = false
-      @backup_config_path = default_backup_config_path
-      @backup_models_path = default_backup_models_path
-      @backup_dump_path = default_backup_dump_path
-      @backup_notify_command = nil
-      @backup_alert_threshold_hours = 24
-
       # Database
       @database_url = nil
       @database_name = nil
@@ -298,32 +280,5 @@ module RailsNexus
       @table_prefix = "rails_nexus_"
     end
 
-    private
-
-    def default_backup_config_path
-      if defined?(Rails) && Rails.respond_to?(:root)
-        path = Rails.root.join("config/backup/config.rb")
-        path.exist? ? path.to_s : nil
-      else
-        nil
-      end
-    end
-
-    def default_backup_models_path
-      if defined?(Rails) && Rails.respond_to?(:root)
-        path = Rails.root.join("config/backup/models")
-        path.exist? ? path.to_s : nil
-      else
-        nil
-      end
-    end
-
-    def default_backup_dump_path
-      if defined?(Rails) && Rails.respond_to?(:root)
-        Rails.root.join("storage/rails_nexus/backups").to_s
-      else
-        "storage/rails_nexus/backups"
-      end
-    end
   end
 end

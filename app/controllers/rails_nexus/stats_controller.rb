@@ -11,7 +11,6 @@ module RailsNexus
       @exception_stats = collect_exception_stats
       @platform_stats = collect_platform_stats
       @database_stats = collect_database_stats
-      @backup_stats = collect_backup_stats
       @storm_stats = collect_storm_stats if defined?(RailsNexus::StormProtection)
     end
 
@@ -241,131 +240,6 @@ module RailsNexus
       stats
     rescue StandardError => e
       { error: e.message }
-    end
-
-    def collect_backup_stats
-      stats = { detected: false, gem: nil, status: "unknown", last_backup: nil, details: {} }
-
-      # Check for backup gem
-      if defined?(Backup)
-        stats[:detected] = true
-        stats[:gem] = "backup"
-        stats[:version] = Backup::VERSION if Backup.const_defined?(:VERSION)
-
-        begin
-          # Check for backup configuration
-          config_path = Rails.root.join("config", "backup")
-          if config_path.exist?
-            stats[:details][:config_path] = config_path.to_s
-            stats[:status] = "configured"
-          end
-
-          # Check for backup logs
-          log_path = Rails.root.join("log", "backup")
-          if log_path.exist?
-            log_files = log_path.glob("*.log").sort_by(&:mtime).reverse
-            if log_files.any?
-              last_log = log_files.first
-              stats[:details][:log_file] = last_log.to_s
-              stats[:details][:log_size] = (last_log.size / 1024.0).round(1)
-
-              # Parse last backup time from log
-              log_content = last_log.read(1000)  # Read first 1KB
-              if log_content.match(/started at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/)
-                stats[:last_backup] = Time.parse($1)
-              end
-            end
-          end
-
-          # Check for backup models
-          models = Backup::Model.all rescue []
-          if models.any?
-            stats[:details][:models] = models.map do |m|
-              {
-                name: m.name,
-                schedule: m.schedule&.to_s,
-                triggers: m.triggers.map(&:name)
-              }
-            end
-            stats[:status] = "configured"
-          end
-        rescue StandardError => e
-          stats[:details][:error] = e.message
-        end
-      end
-
-      # Check for pg_dump (PostgreSQL)
-      if (version = executable_version("pg_dump"))
-        stats[:detected] = true
-        stats[:gem] ||= "pg_dump"
-        stats[:details][:pg_dump] = version
-      end
-
-      # Check for mysqldump (MySQL)
-      if (version = executable_version("mysqldump"))
-        stats[:detected] = true
-        stats[:gem] ||= "mysqldump"
-        stats[:details][:mysqldump] = version
-      end
-
-      # Check for AWS CLI (RDS backups)
-      if (version = executable_version("aws"))
-        stats[:detected] = true
-        stats[:gem] ||= "aws-cli"
-        stats[:details][:aws_cli] = version
-
-        # Check for RDS snapshots if configured
-        begin
-          rds_client = Aws::RDS::Client.new
-          snapshots = rds_client.describe_db_snapshots(db_snapshot_identifier: "automated-*")
-          stats[:details][:rds_snapshots] = snapshots.db_snapshots.count
-          stats[:status] = "configured" if snapshots.db_snapshots.any?
-        rescue StandardError
-          # AWS not configured or no access
-        end
-      end
-
-      # Check for docker backup solutions
-      if File.exist?("/var/lib/docker") && (version = executable_version("docker"))
-        stats[:detected] = true
-        stats[:gem] ||= "docker"
-        stats[:details][:docker] = version
-      end
-
-      # Check for crontab entries related to backups
-      begin
-        crontab, _stderr, status = Open3.capture3("crontab", "-l")
-        if status.success? && (crontab.include?("backup") || crontab.include?("dump"))
-          stats[:details][:crontab_backup] = true
-          stats[:status] = "scheduled" if stats[:status] == "unknown"
-        end
-      rescue StandardError
-        # Cannot read crontab
-      end
-
-      # Check for backup-related environment variables
-      backup_env_vars = %w[BACKUP_DIR BACKUP_S3_BUCKET BACKUP_GCS_BUCKET DATABASE_BACKUP_URL]
-      found_env = backup_env_vars.select { |var| ENV[var] }
-      if found_env.any?
-        stats[:detected] = true
-        stats[:details][:env_vars] = found_env
-      end
-
-      # Determine overall status
-      if stats[:last_backup]
-        hours_since = (Time.now - stats[:last_backup]) / 3600
-        if hours_since < 24
-          stats[:status] = "healthy"
-        elsif hours_since < 168  # 7 days
-          stats[:status] = "warning"
-        else
-          stats[:status] = "stale"
-        end
-      elsif stats[:status] == "unknown"
-        stats[:status] = "not_configured"
-      end
-
-      stats
     end
 
     def collect_table_stats

@@ -41,17 +41,6 @@ RailsNexus::Engine.routes.draw do
   # N+1 query patterns
   get "n1_patterns", to: "n1_patterns#index", as: :n1_patterns
 
-  # Backup management
-  get  "backup", to: "backup#index", as: :backup
-  get  "backup/new", to: "backup#new", as: :new_backup
-  post "backup", to: "backup#create"
-  get  "backup/history", to: "backup#all_history", as: :backup_history
-  get  "backup/:id/edit", to: "backup#edit", as: :edit_backup
-  patch "backup/:id", to: "backup#update"
-  delete "backup/:id", to: "backup#destroy", as: :backup_destroy
-  post "backup/:id/trigger", to: "backup#trigger", as: :backup_trigger
-  get  "backup/:id/history", to: "backup#history", as: :backup_config_history
-
   # Settings and webhook management
   get "settings", to: "settings#index", as: :settings
   post "settings/test_webhook", to: "settings#test_webhook", as: :test_webhook
