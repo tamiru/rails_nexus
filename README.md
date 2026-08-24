@@ -465,8 +465,8 @@ To release a version, update `lib/rails_nexus/version.rb` and `CHANGELOG.md`,
 merge the changes to `main`, then push a matching tag:
 
 ```bash
-git tag v2.1.2
-git push origin v2.1.2
+git tag v2.1.4
+git push origin v2.1.4
 ```
 
 The workflow verifies that the tag matches the gem version, runs the tests,

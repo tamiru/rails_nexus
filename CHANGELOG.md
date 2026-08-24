@@ -5,6 +5,15 @@ All notable changes to RailsNexus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.4] - 2026-08-24
+
+### Changed
+- **Backup extraction** — Backup management now lives in the standalone `backup_nexus` gem while RailsNexus retains the shared layout and stylesheet.
+- **Release automation** — GitHub Actions builds, validates, and publishes the gem non-interactively with a scoped RubyGems API key.
+
+### Security
+- **Safe backup examples** — Removed the credential-bearing backup seed and replaced it with environment-based configuration owned by BackupNexus.
+
 ## [2.1.1] - 2026-08-23
 
 ### Added
