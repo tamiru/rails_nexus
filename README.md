@@ -447,10 +447,16 @@ GitHub Actions runs the test matrix, database compatibility checks, asset builds
 and security checks on pushes and pull requests. Releases are published to
 RubyGems when a version tag is pushed.
 
-Before the first release, create a scoped RubyGems API key that can push only
-the `rails_nexus` gem. Add it to the GitHub repository (or its `release`
-environment) as an Actions secret named `RUBYGEMS_API_KEY`. Never commit the
-key to the repository.
+Before the first release, set the RubyGems account's MFA level to **UI and gem
+signin**, then create an API key with only the **Push rubygems** scope, limited
+to the `rails_nexus` gem. Leave MFA disabled for this CI key so RubyGems does
+not request a one-time password during automated releases. Add the key to the
+GitHub repository (or its `release` environment) as an Actions secret named
+`RUBYGEMS_API_KEY`. Never commit the key to the repository.
+
+The publish command has no interactive input. A missing key or an account/key
+that requires API MFA therefore fails the release instead of waiting for an
+OTP prompt.
 
 Create the `release` environment in GitHub and add required reviewers if you
 want a manual approval before publishing.
