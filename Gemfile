@@ -15,5 +15,5 @@ gem "rack", ">= 3.2"
 # Start debugger with binding.b [https://github.com/ruby/debug]
 # gem "debug", ">= 1.0.0"
 
-gem "pagy", "~> 6.5"
+gem "pagy", "~> 43.4"
 gem "ransack", "~> 4.0"
