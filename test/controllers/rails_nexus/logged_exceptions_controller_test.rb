@@ -21,6 +21,10 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
       platform: "api",
       priority: "critical",
       occurrence_count: 12,
+      fingerprint: "abc123diagnostic",
+      app_version: "4.2.1",
+      local_variables: { request_id: "request-123" },
+      instance_variables: { operation: "checkout" },
       assigned_to: "ops@example.com",
       created_at: Time.current
     )
@@ -144,6 +148,10 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
   test "show returns success" do
     get "/rails_nexus/logged_exceptions/#{@exception.id}"
     assert_response :success
+    assert_select ".rn-tab", text: "Context"
+    assert_select "[data-rn-tab-content='diagnostic_context']", text: /request-123/
+    assert_select ".rn-meta-value", text: "4.2.1"
+    assert_select ".rn-meta-value", text: "12"
   end
 
   test "show as turbo stream" do

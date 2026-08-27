@@ -5,6 +5,16 @@ All notable changes to RailsNexus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Rich exception diagnostics** — Structured logs and persisted exception records now capture filtered request/user context, cause chains, runtime details, app version, custom exception data, and exception instance variables with bounded serialization.
+- **Diagnostic context UI** — Exception details expose fingerprint, occurrence, platform, app/user metadata, and a dedicated context tab.
+
+### Fixed
+- **Safe exception boundary** — Capture and custom-context failures no longer replace the original application exception.
+- **Precise exception grouping** — Fingerprints now include normalized messages and source frames so unrelated failures in the same action are not merged.
+
 ## [2.1.4] - 2026-08-24
 
 ### Changed

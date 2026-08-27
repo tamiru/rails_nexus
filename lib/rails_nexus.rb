@@ -102,13 +102,25 @@ module RailsNexus
 
     # we log the exception and raise it again, for the normal handling.
     def log_exception_handler(exception)
-      log_exception(exception) if exception.is_a?(StandardError)
+      if exception.is_a?(StandardError)
+        begin
+          log_exception(exception)
+        rescue StandardError => logging_error
+          Rails.logger&.error("[RailsNexus] Failed to capture exception (#{logging_error.class})")
+        end
+      end
       raise exception
     end
 
     def rescue_action(exception)
       status = response_code_for_rescue(exception)
-      log_exception(exception) if exception.is_a?(StandardError) && status != :not_found
+      if exception.is_a?(StandardError) && status != :not_found
+        begin
+          log_exception(exception)
+        rescue StandardError => logging_error
+          Rails.logger&.error("[RailsNexus] Failed to capture exception (#{logging_error.class})")
+        end
+      end
       super
     end
 
@@ -122,11 +134,16 @@ module RailsNexus
                     RailsNexus.configuration.exception_data
                   end
 
-      data = case deliverer
-             when nil    then {}
-             when Symbol then send(deliverer)
-             when Proc   then deliverer.call(self)
-             end
+      data = begin
+        case deliverer
+        when nil    then {}
+        when Symbol then send(deliverer)
+        when Proc   then deliverer.call(self)
+        else deliverer.respond_to?(:call) ? deliverer.call(self) : {}
+        end
+      rescue StandardError => data_error
+        { exception_data_error: data_error.class.name }
+      end
 
       data = RailsNexus.filter_sensitive_data(data || {})
 

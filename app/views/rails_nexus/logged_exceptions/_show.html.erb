@@ -74,6 +74,9 @@
       <% if @exception_tabs[:user_info] %>
         <button type="button" class="rn-tab" data-action="click->rails_nexus-detail#switchTab" data-rn-tab-param="user_info">User Info</button>
       <% end %>
+      <% if @exception_tabs[:diagnostic_context] %>
+        <button type="button" class="rn-tab" data-action="click->rails_nexus-detail#switchTab" data-rn-tab-param="diagnostic_context">Context</button>
+      <% end %>
       <% if @exception.respond_to?(:cause_chain) && @exception.cause_chain.present? && @exception.cause_chain.is_a?(Array) && @exception.cause_chain.length > 0 %>
         <button type="button" class="rn-tab" data-action="click->rails_nexus-detail#switchTab" data-rn-tab-param="cause_chain">
           Cause Chain
@@ -140,6 +143,36 @@
               <div class="rn-meta-item" style="grid-column: span 2">
                 <div class="rn-meta-label">User Agent</div>
                 <div class="rn-meta-value" style="font-size: 0.8125rem; word-break: break-all"><%= @exception.user_agent %></div>
+              </div>
+            <% end %>
+            <% if @exception.respond_to?(:fingerprint) && @exception.fingerprint.present? %>
+              <div class="rn-meta-item">
+                <div class="rn-meta-label">Fingerprint</div>
+                <div class="rn-meta-value mono"><%= @exception.fingerprint %></div>
+              </div>
+            <% end %>
+            <% if @exception.respond_to?(:occurrence_count) && @exception.occurrence_count.present? %>
+              <div class="rn-meta-item">
+                <div class="rn-meta-label">Occurrences</div>
+                <div class="rn-meta-value"><%= number_with_delimiter(@exception.occurrence_count) %></div>
+              </div>
+            <% end %>
+            <% if @exception.respond_to?(:platform) && @exception.platform.present? %>
+              <div class="rn-meta-item">
+                <div class="rn-meta-label">Platform</div>
+                <div class="rn-meta-value"><%= [@exception.platform, @exception.platform_version].compact.join(" ") %></div>
+              </div>
+            <% end %>
+            <% if @exception.respond_to?(:app_version) && @exception.app_version.present? %>
+              <div class="rn-meta-item">
+                <div class="rn-meta-label">App Version</div>
+                <div class="rn-meta-value mono"><%= @exception.app_version %></div>
+              </div>
+            <% end %>
+            <% if @exception.respond_to?(:user_id) && @exception.user_id.present? %>
+              <div class="rn-meta-item">
+                <div class="rn-meta-label">User ID</div>
+                <div class="rn-meta-value mono"><%= @exception.user_id %></div>
               </div>
             <% end %>
             <div class="rn-meta-item">
@@ -341,6 +374,24 @@
         </div>
       <% end %>
     </div>
+
+    <%# ─── Tab: Diagnostic Context ────────────────────────────── %>
+    <% if @exception_tabs[:diagnostic_context] %>
+      <div data-rails_nexus-detail-target="tabContent" data-rn-tab-content="diagnostic_context" style="display: none">
+        <% if @exception.respond_to?(:local_variables) && @exception.local_variables.present? %>
+          <div class="rn-detail-section">
+            <div class="rn-detail-section-header"><h3>Custom Exception Data</h3></div>
+            <div class="rn-detail-code" style="max-height: 24rem; overflow: auto"><%= pretty_format(@exception.local_variables) %></div>
+          </div>
+        <% end %>
+        <% if @exception.respond_to?(:instance_variables) && @exception.instance_variables.present? %>
+          <div class="rn-detail-section">
+            <div class="rn-detail-section-header"><h3>Exception Instance Variables</h3></div>
+            <div class="rn-detail-code" style="max-height: 24rem; overflow: auto"><%= pretty_format(@exception.instance_variables) %></div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
 
   </div>
 

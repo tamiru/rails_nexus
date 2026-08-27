@@ -218,7 +218,9 @@ module RailsNexus
         backtrace: @exception.backtrace.present?,
         request: @exception.request.present?,
         environment: @exception.environment.present?,
-        user_info: @exception.user_info.present?
+        user_info: @exception.user_info.present?,
+        diagnostic_context: (@exception.respond_to?(:local_variables) && @exception.local_variables.present?) ||
+          (@exception.respond_to?(:instance_variables) && @exception.instance_variables.present?)
       }
     end
   end

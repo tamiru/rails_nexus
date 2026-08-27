@@ -95,6 +95,67 @@ class RailsNexus::LoggedExceptionTest < ActiveSupport::TestCase
     Rails.application.config.filter_parameters = original_filters
   end
 
+  test "create_from_exception captures advanced diagnostic context" do
+    request = MockRequest.new(
+      env: {
+        "REQUEST_METHOD" => "POST",
+        "HTTP_HOST" => "example.test",
+        "HTTP_USER_AGENT" => "RailsNexus Test Client",
+        "HTTP_X_APP_VERSION" => "4.2.1",
+        "HTTP_X_REQUEST_ID" => "request-123"
+      }
+    )
+    user = Struct.new(:id, :email, :username, :name).new(7, "person@example.test", "person", "Test Person")
+    controller = ContextController.new(request: request, user: user)
+    error = RuntimeError.new("Advanced failure")
+    error.instance_variable_set(:@token, "secret-token")
+    error.instance_variable_set(:@operation, "checkout")
+
+    logged = RailsNexus::LoggedException.create_from_exception(
+      controller,
+      error,
+      { request_id: "request-123", password: "secret-password" }
+    )
+
+    assert_equal "RailsNexus Test Client", logged.user_agent
+    assert_equal "4.2.1", logged.app_version
+    assert_equal "7", logged.user_id
+    assert_equal "person@example.test", JSON.parse(logged.user_info)["email"]
+    assert_equal "request-123", logged.local_variables["request_id"]
+    assert_equal "[FILTERED]", logged.local_variables["password"]
+    assert_equal "checkout", logged.instance_variables["operation"]
+    assert_equal "[FILTERED]", logged.instance_variables["token"]
+    assert_includes logged.request, "Request ID: request-123"
+    assert_includes logged.environment, "Ruby Version"
+  end
+
+  test "fingerprinting groups the same failure with changing identifiers and refreshes its context" do
+    controller = build_mock_controller
+    first = RuntimeError.new("Order 123 failed")
+    first.set_backtrace([Rails.root.join("app/models/order.rb:10:in `save'").to_s])
+    second = RuntimeError.new("Order 456 failed")
+    second.set_backtrace([Rails.root.join("app/models/order.rb:99:in `save'").to_s])
+
+    logged = RailsNexus::LoggedException.create_from_exception(controller, first, { attempt: 1 })
+    original_time = logged.created_at
+    repeated = RailsNexus::LoggedException.create_from_exception(controller, second, { attempt: 2 })
+
+    assert_equal logged.id, repeated.id
+    assert_equal 2, repeated.occurrence_count
+    assert_equal 2, repeated.local_variables["attempt"]
+    assert_operator repeated.created_at, :>=, original_time
+  end
+
+  test "fingerprinting keeps distinct failures in one action separate" do
+    controller = build_mock_controller
+
+    first = RailsNexus::LoggedException.create_from_exception(controller, RuntimeError.new("Payment failed"), {})
+    second = RailsNexus::LoggedException.create_from_exception(controller, RuntimeError.new("Inventory failed"), {})
+
+    refute_equal first.id, second.id
+    refute_equal first.fingerprint, second.fingerprint
+  end
+
   test "scope sorted returns most recent first" do
     old = create_exception(created_at: 2.days.ago)
     new_record = create_exception(created_at: 1.hour.ago)
@@ -246,6 +307,34 @@ class MockRequest
   def get?
     true
   end
+
+  def path
+    fullpath.split("?", 2).first
+  end
+
+  def request_method
+    env["REQUEST_METHOD"] || method
+  end
+
+  def request_id
+    env["HTTP_X_REQUEST_ID"]
+  end
+
+  def user_agent
+    env["HTTP_USER_AGENT"]
+  end
+
+  def content_type
+    env["CONTENT_TYPE"]
+  end
+
+  def filtered_parameters
+    RailsNexus.filter_sensitive_data(parameters)
+  end
+
+  def get_header(name)
+    env[name]
+  end
 end
 
 class MockController
@@ -259,5 +348,22 @@ class MockController
 
   def respond_to?(*)
     false
+  end
+end
+
+class ContextController
+  attr_reader :controller_path, :action_name, :request
+
+  def initialize(request:, user:)
+    @controller_path = "orders"
+    @action_name = "create"
+    @request = request
+    @user = user
+  end
+
+  private
+
+  def current_user
+    @user
   end
 end

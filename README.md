@@ -144,6 +144,17 @@ end
 
 RailsNexus logs the exception and then re-raises it so Rails keeps its normal error handling.
 
+Each capture includes the full filtered request context, request ID, user agent,
+current-user identity, normalized fingerprint, cause chain, bounded backtrace,
+exception instance variables, runtime/system health, and any `exception_data`
+returned by your configuration. Custom and exception data appear in the
+**Context** tab. Passwords, tokens, cookies, authorization headers, and the host
+application's configured filter parameters are replaced with `[FILTERED]`.
+
+When structured logging is enabled, the Rails logger receives the same context
+as a single JSON event. `log_backtrace_limit`, `log_params`, and
+`log_user_info` control how much is included in that event.
+
 ### API controllers
 
 For `ActionController::API` subclasses (e.g., API namespaces):

@@ -5,11 +5,13 @@ module RailsNexus
     self.table_name = "rails_nexus_exceptions"
     HOSTNAME = Socket.gethostname
 
-    serialize :cause_chain, coder: JSON unless method_defined?(:cause_chain)
-    serialize :breadcrumbs, coder: JSON unless method_defined?(:breadcrumbs)
-    serialize :system_health, coder: JSON unless method_defined?(:system_health)
-    serialize :local_variables, coder: JSON unless method_defined?(:local_variables)
-    serialize :instance_variables, coder: JSON unless method_defined?(:instance_variables)
+    serialize :cause_chain, coder: JSON
+    serialize :breadcrumbs, coder: JSON
+    serialize :system_health, coder: JSON
+    serialize :local_variables, coder: JSON
+    # This column intentionally overrides Object#instance_variables so the
+    # captured exception context is readable through the normal model API.
+    serialize :instance_variables, coder: JSON
 
     # ─── Associations ──────────────────────────────────────────────
     has_many :comments, class_name: "RailsNexus::Comment", dependent: :destroy
@@ -45,8 +47,13 @@ module RailsNexus
           end
         end
 
+        data = normalize_context_data(data)
         message = exception.message.to_s
-        message += "\n* Extra Data\n\n#{data}" unless data.blank?
+        message += "\n* Extra Data\n\n#{data.inspect}" unless data.blank?
+
+        request = safe_call(controller, :request)
+        controller_name = safe_call(controller, :controller_path) || controller.class.name
+        action_name = safe_call(controller, :action_name)
 
         # Detect platform from user agent and request format
         platform_data = detect_platform(controller)
@@ -57,15 +64,18 @@ module RailsNexus
         end
 
         # Extract user info for impact scoring
-        user = controller.respond_to?(:current_user, true) ? controller.current_user : nil
-        user_id = user&.id&.to_s || data[:user_id]&.to_s rescue nil
-        user_type = user.class.name rescue nil
+        user = current_user_for(controller)
+        user_context = capture_user_context(user, data)
+        user_id = user_context[:id]&.to_s || data[:user_id]&.to_s || data["user_id"]&.to_s
+        user_type = user_context[:type]
 
         # Generate fingerprint for grouping
         fingerprint = generate_fingerprint(
           exception.class.name,
-          controller.controller_path,
-          controller.action_name
+          controller_name,
+          action_name,
+          message: exception.message,
+          backtrace: exception.backtrace
         )
 
         # Check if this fingerprint already exists (occurrence counting)
@@ -73,36 +83,34 @@ module RailsNexus
 
         attrs = {
           exception_class: exception.class.name,
-          controller_name: controller.controller_path,
-          action_name: controller.action_name,
+          controller_name: controller_name,
+          action_name: action_name,
           message: message,
           backtrace: exception.backtrace,
-          request: controller.request,
-          user_info: user,
-          remote_ip: controller.request.remote_ip,
+          request: request,
+          user_info: user_context.except(:id, :type).presence&.to_json,
+          user_agent: safe_call(request, :user_agent),
+          remote_ip: safe_call(request, :remote_ip),
           user_id: user_id,
           user_type: user_type,
           fingerprint: fingerprint,
           platform: platform_data[:platform],
           platform_version: platform_data[:platform_version],
           device_type: platform_data[:device_type],
+          app_version: app_version(request, data),
           cause_chain: extract_cause_chain(exception),
           breadcrumbs: breadcrumbs_data.presence,
           system_health: capture_system_health,
+          local_variables: data.presence,
+          instance_variables: capture_exception_variables(exception).presence,
           occurrence_count: existing ? existing.occurrence_count + 1 : 1
         }
 
         if existing
-          existing.update!(
-            message: message,
-            backtrace: exception.backtrace,
-            request: controller.request,
-            user_info: user,
-            remote_ip: controller.request.remote_ip,
+          existing.update!(attrs.except(:fingerprint, :occurrence_count).merge(
             occurrence_count: existing.occurrence_count + 1,
-            cause_chain: attrs[:cause_chain],
-            system_health: attrs[:system_health]
-          )
+            created_at: Time.current
+          ))
           RailsNexus::StormProtection.record_captured if defined?(RailsNexus::StormProtection)
           existing
         else
@@ -114,6 +122,84 @@ module RailsNexus
 
       def host_name
         HOSTNAME
+      end
+
+      private
+
+      def normalize_context_data(data)
+        data = data.to_unsafe_h if data.respond_to?(:to_unsafe_h)
+        data = data.to_h if !data.is_a?(Hash) && data.respond_to?(:to_h)
+        data = { value: data } unless data.is_a?(Hash)
+        safe_context_value(RailsNexus.filter_sensitive_data(data))
+      rescue StandardError
+        {}
+      end
+
+      def current_user_for(controller)
+        controller.send(:current_user) if controller.respond_to?(:current_user, true)
+      rescue StandardError
+        nil
+      end
+
+      def capture_user_context(user, data)
+        return {} unless RailsNexus.configuration.user_impact_tracking
+
+        context = {
+          id: safe_call(user, :id),
+          type: user&.class&.name,
+          email: safe_call(user, :email),
+          username: safe_call(user, :username),
+          name: safe_call(user, :name)
+        }.compact
+        context[:id] ||= data[:user_id] || data["user_id"]
+        safe_context_value(RailsNexus.filter_sensitive_data(context))
+      rescue StandardError
+        {}
+      end
+
+      def capture_exception_variables(exception)
+        values = exception.instance_variables.each_with_object({}) do |name, result|
+          result[name.to_s.delete_prefix("@")] = safe_context_value(exception.instance_variable_get(name))
+        rescue StandardError
+          result[name.to_s.delete_prefix("@")] = "[unavailable]"
+        end
+        RailsNexus.filter_sensitive_data(values)
+      rescue StandardError
+        {}
+      end
+
+      def app_version(request, data)
+        data[:app_version] || data["app_version"] ||
+          safe_call(request, :get_header, "HTTP_X_APP_VERSION") ||
+          safe_call(request, :get_header, "HTTP_X_CLIENT_VERSION")
+      end
+
+      def safe_call(object, method_name, *args)
+        object.public_send(method_name, *args) if object
+      rescue StandardError
+        nil
+      end
+
+      def safe_context_value(value, depth = 0, seen = {})
+        return "[MAX DEPTH]" if depth >= 5
+        return value if value.nil? || value == true || value == false || value.is_a?(Numeric)
+        return value.to_s.truncate(10_000) if value.is_a?(String) || value.is_a?(Symbol)
+        return value.iso8601 if value.respond_to?(:iso8601) && (value.is_a?(Time) || value.is_a?(Date))
+
+        object_id = value.object_id
+        return "[CIRCULAR]" if seen[object_id]
+        seen[object_id] = true
+
+        case value
+        when Hash
+          value.first(100).to_h.transform_values { |child| safe_context_value(child, depth + 1, seen) }
+        when Array
+          value.first(100).map { |child| safe_context_value(child, depth + 1, seen) }
+        else
+          value.to_s.truncate(10_000)
+        end
+      ensure
+        seen&.delete(object_id) if defined?(object_id) && object_id
       end
     end
 
@@ -147,18 +233,30 @@ module RailsNexus
     end
 
     # Generate fingerprint for grouping similar exceptions
-    def self.generate_fingerprint(exception_class, controller_name, action_name)
+    def self.generate_fingerprint(exception_class, controller_name, action_name, message: nil, backtrace: nil)
       require "digest"
-      Digest::SHA256.hexdigest("#{exception_class}#{controller_name}#{action_name}")[0..15]
+      normalized_message = message.to_s
+        .gsub(/\b\d+\b/, "?")
+        .gsub(/\b[0-9a-f]{8,}\b/i, "?")
+        .gsub(/\s+/, " ")
+        .strip
+      source = Array(backtrace).find { |line| line.to_s.include?(Rails.root.to_s) } || Array(backtrace).first
+      normalized_source = source.to_s.sub(/:\d+(?::in .*)?\z/, "")
+      parts = [exception_class, controller_name, action_name, normalized_message, normalized_source]
+      Digest::SHA256.hexdigest(parts.join("\0"))[0, 16]
     end
 
     # Detect platform from user_agent and request
     def self.detect_platform(controller)
       request = controller.request
+      return { platform: "unknown", platform_version: nil, device_type: "unknown", app_version: nil } unless request
+
       user_agent = request.respond_to?(:user_agent) ? request.user_agent.to_s.downcase : ""
 
       # API detection: no user_agent or JSON/XML format
-      if user_agent.blank? || request.format&.ref == "json" || request.format&.ref == "xml"
+      format = request.respond_to?(:format) ? request.format : nil
+      format_ref = format.respond_to?(:ref) ? format.ref.to_s : format.to_s
+      if user_agent.blank? || %w[json xml].include?(format_ref)
         return { platform: "api", platform_version: nil, device_type: "server", app_version: nil }
       end
 
@@ -196,6 +294,8 @@ module RailsNexus
 
       # Default: web
       { platform: "web", platform_version: nil, device_type: "unknown", app_version: nil }
+    rescue StandardError
+      { platform: "unknown", platform_version: nil, device_type: "unknown", app_version: nil }
     end
 
     # Platform analytics
@@ -497,16 +597,35 @@ module RailsNexus
       if request.is_a?(String)
         write_attribute :request, request
       elsif request.respond_to?(:env) && request.env.is_a?(Hash)
-        filtered_env = RailsNexus.filter_sensitive_data(request.env)
-        keys = filtered_env.keys.map(&:to_s).sort
-        max_length = keys.map(&:length).max || 0
-        env = keys.each_with_object([]) do |key, memo|
-          value = filtered_env[key] || filtered_env[key.to_sym]
-          memo << ("* %-*s: %s" % [max_length, key, value.to_s.strip])
-        end
-        write_attribute(:environment, (env << "* Process: #{$$}" << "* Server : #{self.class.host_name}").join("\n"))
+        captured_env_keys = %w[
+          REQUEST_METHOD HTTP_HOST SERVER_NAME SERVER_PORT HTTPS
+          HTTP_X_FORWARDED_PROTO HTTP_X_FORWARDED_HOST HTTP_X_REQUEST_ID
+          HTTP_X_CORRELATION_ID HTTP_TRACEPARENT HTTP_TRACESTATE HTTP_BAGGAGE
+          action_dispatch.request_id HTTP_REFERER HTTP_ORIGIN CONTENT_TYPE
+          CONTENT_LENGTH HTTP_ACCEPT HTTP_ACCEPT_LANGUAGE HTTP_USER_AGENT
+          HTTP_X_APP_VERSION HTTP_X_CLIENT_VERSION HTTP_AUTHORIZATION HTTP_COOKIE
+        ]
+        captured_env = request.env.slice(*captured_env_keys)
+        filtered_env = RailsNexus.filter_sensitive_data(captured_env)
+        environment = {
+          "Rails Environment" => Rails.env.to_s,
+          "Rails Version" => Rails.version,
+          "Ruby Version" => RUBY_DESCRIPTION,
+          "Process" => Process.pid,
+          "Server" => self.class.host_name
+        }.merge(filtered_env)
+        max_length = environment.keys.map(&:length).max || 0
+        write_attribute(:environment, environment.sort.map do |key, value|
+          "* %-*s: %s" % [max_length, key, value.to_s.strip.truncate(10_000)]
+        end.join("\n"))
 
-        method_str = request.respond_to?(:get?) && request.get? ? "" : " #{request.respond_to?(:method) ? request.method.to_s.upcase : "GET"}"
+        method = if request.respond_to?(:request_method)
+                   request.request_method
+                 elsif request.respond_to?(:method)
+                   request.method
+                 else
+                   "GET"
+                 end
         parameters = request.respond_to?(:parameters) ? RailsNexus.filter_sensitive_data(request.parameters) : {}
         request_path = if request.respond_to?(:path)
                          request.path
@@ -515,12 +634,18 @@ module RailsNexus
                        else
                          "/"
                        end
+        request_id = request.respond_to?(:request_id) ? request.request_id : filtered_env["HTTP_X_REQUEST_ID"]
+        host = filtered_env["HTTP_HOST"] || filtered_env["SERVER_NAME"] || "localhost"
+        protocol = request.respond_to?(:protocol) ? request.protocol : "http://"
         write_attribute(:request, [
-          "* URL:#{method_str} #{request.respond_to?(:protocol) ? request.protocol : "http://"}#{filtered_env["HTTP_HOST"] || "localhost"}#{request_path}",
+          "* Method: #{method.to_s.upcase}",
+          "* URL: #{protocol}#{host}#{request_path}",
+          ("* Request ID: #{request_id}" if request_id.present?),
           "* Format: #{request.respond_to?(:format) ? request.format.to_s : "html"}",
+          ("* Content Type: #{request.content_type}" if request.respond_to?(:content_type) && request.content_type.present?),
           "* Parameters: #{parameters.inspect}",
           "* Rails Root: #{rails_root}"
-        ].join("\n"))
+        ].compact.join("\n"))
       else
         write_attribute :request, request.to_s
       end
