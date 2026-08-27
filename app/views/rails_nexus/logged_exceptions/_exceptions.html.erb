@@ -152,7 +152,7 @@
           to <span class="font-medium" style="color: var(--rn-text-secondary)"><%= @pagy.to %></span>
           of <span class="font-medium" style="color: var(--rn-text-secondary)"><%= @pagy.count %></span>
         </p>
-        <div><%== pagy_nav(@pagy) %></div>
+        <div><%== rails_nexus_pagy_nav(@pagy) %></div>
       </div>
     <% end %>
   <% end %>

@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     rails_nexus (2.1.4)
-      pagy (>= 6.5, < 44.0)
+      pagy (>= 43.0)
       rails (~> 8.0, >= 8.0.0)
       ransack (~> 4.0)
       stimulus-rails (~> 1.3)

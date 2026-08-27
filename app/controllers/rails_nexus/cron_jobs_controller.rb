@@ -23,7 +23,7 @@ module RailsNexus
 
       requested_size = params[:per_page].to_i
       page_size = requested_size.between?(1, 100) ? requested_size : 30
-      @pagy, @cron_jobs = pagy(cron_jobs, items: page_size)
+      @pagy, @cron_jobs = rails_nexus_pagy(cron_jobs, limit: page_size)
     end
 
     def show
@@ -42,7 +42,6 @@ module RailsNexus
 
     def retry_job
       cron_job = CronJob.find(params[:id])
-      # Re-run the job (implementation depends on job scheduler)
       redirect_to cron_jobs_path, notice: "Retrying job: #{cron_job.name}"
     end
 
@@ -51,6 +50,5 @@ module RailsNexus
     def set_cron_job
       @cron_job = CronJob.find(params[:id])
     end
-
   end
 end

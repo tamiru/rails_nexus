@@ -133,7 +133,7 @@
       <%# Pagination %>
       <% if @pagy.pages > 1 %>
         <div class="rn-pagination">
-          <%== pagy_nav(@pagy) %>
+          <%== rails_nexus_pagy_nav(@pagy) %>
         </div>
       <% end %>
     <% end %>

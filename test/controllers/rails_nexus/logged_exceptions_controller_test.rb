@@ -85,7 +85,7 @@ class RailsNexus::LoggedExceptionsControllerTest < ActionDispatch::IntegrationTe
 
     assert_response :success
     assert_select "tbody[data-rails_nexus-target='exceptionList'] tr", count: 1
-    assert_select ".rn-pagination .pagy-nav"
+    assert_select ".rn-pagination .series-nav"
     assert_select "p", text: /Showing 26\s+to 26\s+of 26/
   end
 

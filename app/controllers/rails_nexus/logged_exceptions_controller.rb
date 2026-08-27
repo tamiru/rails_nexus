@@ -96,9 +96,7 @@ module RailsNexus
       load_filter_options
       @q = ransack_search
       load_stats if RailsNexus.configuration.show_stats
-      @pagy, @exceptions = pagy(@q.result(distinct: true), items: page_size)
-    rescue Pagy::OverflowError
-      @pagy, @exceptions = pagy(@q.result(distinct: true), page: 1, items: page_size)
+      @pagy, @exceptions = rails_nexus_pagy(@q.result(distinct: true), limit: page_size)
     end
 
     def ransack_search
