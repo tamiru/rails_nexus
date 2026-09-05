@@ -12,10 +12,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.2", "3.3", "3.4", "4.0"]
+        ruby: ["3.2", "3.3", "3.4", "4.0.5"]
         rails: ["8_0", "8_1"]
         exclude:
-          - ruby: "4.0"
+          - ruby: "4.0.5"
             rails: "8_0"
     runs-on: ubuntu-latest
     env:
@@ -26,6 +26,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+      - run: bin/rails app:db:prepare
       - run: bin/rails test
 
   databases:
@@ -95,7 +96,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: "4.0.5"
           bundler-cache: true
       - run: bin/rails app:db:prepare
       - run: bin/rails test test/models test/controllers test/lib
@@ -117,7 +118,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: "4.0.5"
           bundler-cache: true
       - run: bin/rails app:assets:precompile
 
@@ -129,8 +130,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: "4.0.5"
           bundler-cache: true
-      - run: bundle exec rubocop
+      - run: bundle exec rubocop --cache false
       - run: bundle exec brakeman --no-pager -q -p .
       - run: bundle exec bundle-audit check --update

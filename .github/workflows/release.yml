@@ -32,7 +32,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: "4.0.5"
           bundler-cache: true
 
       - name: Verify tag matches gem version
@@ -44,6 +44,9 @@ jobs:
             echo "Tag ${RELEASE_TAG} does not match gem version ${version}" >&2
             exit 1
           }
+
+      - name: Prepare database
+        run: bin/rails app:db:prepare
 
       - name: Run release tests
         run: bin/rails test

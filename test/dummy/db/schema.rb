@@ -2,10 +2,10 @@
 # of editing this file, please use the migrations feature of Active Record to
 # incrementally modify your database, and then regenerate this schema definition.
 #
-# This file is Rails 8.1's schema definition format. It's strongly recommended that
-# you check this file into your version control system.
+# This file is auto-generated from the current state of the database. It's strongly
+# recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2024_03_30_122312) do
+ActiveRecord::Schema[8.0].define(version: 2024_03_30_122312) do
   create_table "rails_nexus_exceptions", force: :cascade do |t|
     # Core exception data
     t.string "exception_class"
