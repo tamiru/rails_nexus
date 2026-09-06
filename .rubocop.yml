@@ -6,6 +6,7 @@ AllCops:
     - "app/assets/javascripts/rails_nexus/application.js"
     - "lib/generators/rails_nexus/templates/**/*.rb"
     - "test/dummy/**/*"
+    - "vendor/**/*"
 
 Lint:
   Enabled: true
