@@ -86,6 +86,7 @@ jobs:
           --health-interval 10s --health-timeout 5s --health-retries 10
     env:
       BUNDLE_GEMFILE: gemfiles/database.gemfile
+      RAILS_ENV: test
       DB_ADAPTER: ${{ matrix.adapter }}
       DB_NAME: ${{ matrix.name }}
       DB_HOST: 127.0.0.1
