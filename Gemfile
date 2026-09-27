@@ -16,4 +16,4 @@ gem "rack", ">= 3.2"
 # gem "debug", ">= 1.0.0"
 
 gem "pagy", "~> 43.4"
-gem "ransack", "~> 4.0"
+gem "ransack", "~> 5.0"
