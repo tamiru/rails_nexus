@@ -30,6 +30,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "turbo-rails", "~> 2.0"
   spec.add_dependency "pagy", ">= 43.0"
 
-  spec.add_dependency "ransack", "~> 4.0"
+  spec.add_dependency "ransack", ">= 4", "< 7"
 
 end
